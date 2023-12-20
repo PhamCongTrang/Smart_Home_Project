@@ -2,10 +2,15 @@
 #include <Arduino.h>
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
-#define ssid "Hust_TVTQB_Dien-Dien-tu"
+// #include <string>
+// using std::string;
+// #define ssid "Hust_TVTQB_Dien-Dien-tu"
+#define ssid "TCP"
 #define password "trangcongpham"
+// #define ssid "STM32F103C8T6"
+// #define password "phong409"
 // Thông tin về MQTT Broker
-#define mqtt_server "192.168.66.243"
+#define mqtt_server "192.168.168.43"
 #define mqtt_topic_pub "local/topic1"
 #define mqtt_topic_sub "local/topic2"
 
@@ -16,7 +21,7 @@ const uint16_t mqtt_port = 1883;
 
 WiFiClient espClient;
 PubSubClient client(espClient);
-
+char tenwifi[] = "hello";
 long lastMsg = 0;
 char msg[50];
 int value = 0;
@@ -27,7 +32,7 @@ void setup_wifi() {
   Serial.println();
   Serial.print("Connecting to ");
   Serial.println(ssid);
-  WiFi.begin(ssid);
+  WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
