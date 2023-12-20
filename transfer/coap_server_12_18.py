@@ -36,7 +36,7 @@ async def main():
     root = resource.Site()
     root.add_resource(['put'], server_put())
     root.add_resource(['get'], server_get())
-    await aiocoap.Context.create_server_context(root, bind=('192.168.66.243', 5683))
+    await aiocoap.Context.create_server_context(root, bind=('192.168.168.43', 5683))
     # Run forever
     await asyncio.get_running_loop().create_future()
 

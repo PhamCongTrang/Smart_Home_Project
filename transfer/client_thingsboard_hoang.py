@@ -16,22 +16,22 @@ humidity_inside = ""
 temperature_outside = ""
 humidity_outside = ""
 
-def get_local_ip():
-    try:
-        # Get the local host name
-        host_name = socket.gethostname()
+# def get_local_ip():
+#     try:
+#         # Get the local host name
+#         host_name = socket.gethostname()
 
-        # Get the IP address of the local host
-        local_ip = socket.gethostbyname(host_name)
+#         # Get the IP address of the local host
+#         local_ip = socket.gethostbyname(host_name)
 
-        return local_ip
+#         return local_ip
 
-    except socket.error as e:
-        print(f"Error: {e}")
-        return None
-local_broker_address = '"' + get_local_ip() + '"'
-print(type(local_broker_address))
-print(f"LOCAL IP: {local_broker_address}")
+#     except socket.error as e:
+#         print(f"Error: {e}")
+#         return None
+# local_broker_address = '"' + get_local_ip() + '"'
+# print(type(local_broker_address))
+# print(f"LOCAL IP: {local_broker_address}")
 def on_connect_publish(client, userdata, flags, rc):
     if rc == 0:
         # print("Connected to publish MQTT broker")
@@ -56,6 +56,11 @@ def on_message(client, userdata, msg):
     #     return 0
     global temperature_inside
     temperature_inside = msg.payload
+    external_payload = f'{{"humidity_in": {humidity_inside},"temperature_in": {temperature_inside}}}'
+    # Print the result
+    print(external_payload)
+    # Publish telemetry data to Thingboard
+    external_client.publish(telemetry_topic, external_payload, qos=1)
     # return msg.payload
     # Publish the received message to another topic on the publish broker
     # client.publish("phamcongtranghd@gmail.com/data", msg.payload)
@@ -70,7 +75,7 @@ username = "iot_g17"
 password = "12345678"
 external_client_id = "70k9jt9qh34w5njkdq4d"  # You can choose any unique client ID
 # Mosquitto MQTT broker details
-local_broker_address = get_local_ip
+# local_broker_address = get_local_ip
 
 # MQTT topic for publishing telemetry data
 telemetry_topic = "v1/devices/me/sensor"
@@ -89,7 +94,7 @@ local_client.on_message = on_message
 external_client.connect(external_broker_address, broker_port, 60)
 external_client.loop_start()
 
-local_client.connect("192.168.66.243", 1883, 60)
+local_client.connect("192.168.168.43", 1883, 60)
 local_client.loop_start()
 # COAP
 class server_put(resource.Resource):
@@ -123,7 +128,7 @@ async def main():
     root = resource.Site()
     root.add_resource(['put'], server_put())
     root.add_resource(['get'], server_get())
-    await aiocoap.Context.create_server_context(root, bind=('192.168.66.243', 5683))
+    await aiocoap.Context.create_server_context(root, bind=('192.168.168.43', 5683))
     # Run forever
     await asyncio.Event().wait()
 # while 1>0:
