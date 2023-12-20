@@ -16,22 +16,21 @@ humidity_inside = ""
 temperature_outside = ""
 humidity_outside = ""
 
-# def get_local_ip():
-#     try:
-#         # Get the local host name
-#         host_name = socket.gethostname()
+def get_local_ip():
+    try:
+        # Get the local host name
+        host_name = socket.gethostname()
 
-#         # Get the IP address of the local host
-#         local_ip = socket.gethostbyname(host_name)
+        # Get the IP address of the local host
+        local_ip = socket.gethostbyname(host_name)
 
-#         return local_ip
+        return local_ip
 
-#     except socket.error as e:
-#         print(f"Error: {e}")
-#         return None
-# local_broker_address = '"' + get_local_ip() + '"'
-# print(type(local_broker_address))
-# print(f"LOCAL IP: {local_broker_address}")
+    except socket.error as e:
+        print(f"Error: {e}")
+        return None
+local_broker_address = get_local_ip()
+print(f"LOCAL IP: {local_broker_address}")
 def on_connect_publish(client, userdata, flags, rc):
     if rc == 0:
         # print("Connected to publish MQTT broker")
@@ -94,7 +93,7 @@ local_client.on_message = on_message
 external_client.connect(external_broker_address, broker_port, 60)
 external_client.loop_start()
 
-local_client.connect("192.168.168.43", 1883, 60)
+local_client.connect(local_broker_address, 1883, 60)
 local_client.loop_start()
 # COAP
 class server_put(resource.Resource):
@@ -128,30 +127,22 @@ async def main():
     root = resource.Site()
     root.add_resource(['put'], server_put())
     root.add_resource(['get'], server_get())
-    await aiocoap.Context.create_server_context(root, bind=('192.168.168.43', 5683))
+    await aiocoap.Context.create_server_context(root, bind=(local_broker_address, 5683))
     # Run forever
     await asyncio.Event().wait()
 # while 1>0:
 #     print("Wait")
 
 if __name__ == "__main__":
-    print("Test2")
     asyncio.run(main())
-    print("Test1")
     try:
         while True:
-            # random_temperature_outside = random.randint(-40, 80)
-            # humidity_inside = random.randint(10, 50)
-            # random_humidity_outside = random.randint(10, 50)
             # Format the string with the random temperature
             # payload = f'{{"humidity_in": {random_humidity_inside},"temperature_in": {random_temperature_inside}, "humidity_out": {random_humidity_outside},"temperature_out": {random_temperature_outside}}}'
             external_payload = f'{{"humidity_in": {humidity_inside},"temperature_in": {temperature_inside}}}'
-            # Print the result
             print(external_payload)
             # Publish telemetry data to Thingboard
             external_client.publish(telemetry_topic, external_payload, qos=1)
-
-            # print(f"Telemetry data published: {payload}")
 
             # Sleep for some time before publishing the next data (e.g., every 5 seconds)
             time.sleep(1)
@@ -160,4 +151,3 @@ if __name__ == "__main__":
         # Disconnect on keyboard interrupt
         external_client.disconnect()
         print("Disconnected from Thingboard MQTT broker")
-print("test3")
