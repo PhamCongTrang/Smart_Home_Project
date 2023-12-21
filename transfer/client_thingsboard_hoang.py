@@ -30,16 +30,17 @@ def get_local_ip():
     except socket.error as e:
         print(f"Error: {e}")
         return None
-local_broker_address = get_local_ip()
-print(f"LOCAL IP: {local_broker_address}")
-def on_connect_publish(client, userdata, flags, rc):
+local_ip = get_local_ip()
+print(f"LOCAL IP: {local_ip}")
+#####-----------------FORWARD--------------------------------------#
+def on_connect_external_publish(client, userdata, flags, rc):
     if rc == 0:
         # print("Connected to publish MQTT broker")
         temp = 0
     else:
         print(f"Connection failed with error code {rc}")
 
-def on_connect_subscribe(client, userdata, flags, rc):
+def on_connect_local_subscribe(client, userdata, flags, rc):
     if rc == 0:
         # print("Connected to publish MQTT broker")
         temp = 1
@@ -47,9 +48,9 @@ def on_connect_subscribe(client, userdata, flags, rc):
     else:
         print(f"Connection failed with error code {rc}")
 
-def on_message(client, userdata, msg):
+def on_message_local_subscribe(client, userdata, msg):
     msg.payload = msg.payload.decode("utf-8")
-    print(f"Received message on topic {msg.topic}: {msg.payload}")
+    # print(f"Received message on topic {msg.topic}: {msg.payload}")
     # if len(msg.payload) < 3:
     #     return msg.payload
     # else:
@@ -58,43 +59,106 @@ def on_message(client, userdata, msg):
     temperature_inside = msg.payload
     external_pub_payload = f'{{"humidity_in": {humidity_inside},"temperature_in": {temperature_inside}}}'
     # Print the result
-    print(external_pub_payload)
+    # print(external_pub_payload)
     # Publish telemetry data to Thingboard
-    external_pub_client.publish(telemetry_topic, external_pub_payload, qos=1)
+    external_pub_client.publish(telemetry_pub_topic, external_pub_payload, qos=1)
     # return msg.payload
     # Publish the received message to another topic on the publish broker
     # client.publish("phamcongtranghd@gmail.com/data", msg.payload)
+#####-----------------REVERSE--------------------------------------#
+def on_connect_local_publish(client, userdata, flags, rc):
+    if rc == 0:
+        print("Connected to publish MQTT broker")
+        local_pub_client.publish(telemetry_pub_topic, "HELLO", qos=1)
+        temp = 0
+    else:
+        print(f"Connection failed with error code {rc}")
 
+def on_connect_external_subscribe(client, userdata, flags, rc):
+    if rc == 0:
+        print("Connected to subscribe MAQIATTO MQTT broker")
+        temp = 1
+        client.subscribe(external_sub_broker_address)
+    else:
+        print(f"Connection failed with error code {rc}")
+
+def on_message_external_subscribe(client, userdata, msg):
+    # msg.payload = msg.payload.decode("utf-8")
+    print(f"Received message on topic {msg.topic}: {msg.payload}")
+
+    global command_inside
+    command_inside = msg.payload
+    # local_pub_payload = f'{{"humidity_in": {humidity_inside},"temperature_in": {temperature_inside}}}'
+    local_pub_payload = command_inside
+    print(local_pub_payload)
+    # Publish telemetry data to Local
+    local_pub_client.publish(telemetry_pub_topic, local_pub_payload, qos=1)
+    # return msg.payload
+    # Publish the received message to another topic on the publish broker
+    # client.publish("phamcongtranghd@gmail.com/data", msg.payload)
 def on_disconnect(client, userdata, rc):
     # print("Disconnected from MQTT broker")
     temp = 1
+##--------------------EXTERNAL CLIENT-----------------------------------------##
+###############################################################################
+# 1. FORWARD
 # Thingboard MQTT broker details
 external_pub_broker_address = "mqtt.thingsboard.cloud"
-broker_port = 1883
-username = "iot_g17"
-password = "12345678"
-external_pub_client_id = "70k9jt9qh34w5njkdq4d"  # You can choose any unique client ID
-# Mosquitto MQTT broker details
-
+external_pub_username = "iot_g17"
+external_pub_password = "12345678"
+external_pub_client_id = "70k9jt9qh34w5njkdq4d"
 # MQTT topic for publishing telemetry data
-telemetry_topic = "v1/devices/me/sensor"
-
+telemetry_pub_topic = "v1/devices/me/sensor"
 # Create MQTT client
 external_pub_client = mqtt.Client(external_pub_client_id)
-external_pub_client.username_pw_set(username, password)
-external_pub_client.on_connect = on_connect_publish
+external_pub_client.username_pw_set(external_pub_username, external_pub_password)
+external_pub_client.on_connect = on_connect_external_publish
 external_pub_client.on_disconnect = on_disconnect
-
-local_sub_client = mqtt.Client()
-local_sub_client.on_connect = on_connect_subscribe
-local_sub_client.on_disconnect = on_disconnect
-local_sub_client.on_message = on_message
-# Connect to Thingboard MQTT broker
-external_pub_client.connect(external_pub_broker_address, broker_port, 60)
+external_pub_client.connect(external_pub_broker_address, 1883, 60)
 external_pub_client.loop_start()
-
+# 2. REVERSE
+# Thingboard MQTT broker details
+external_sub_broker_address = "maqiatto.com"
+external_sub_username = "phamcongtranghd@gmail.com" # fix 3 dong nay, cho Hoang cung cap user, password, id
+external_sub_password = "externalbroker"
+external_sub_client_id = "70k9jt9qh34w5njkdq4d"
+# MQTT topic for publishing telemetry data
+telemetry_sub_topic = "phamcongtranghd@gmail.com/cmd" # de y topic
+# Create MQTT client
+external_sub_client = mqtt.Client(external_sub_client_id)
+external_sub_client.username_pw_set(external_sub_username, external_sub_password)
+external_sub_client.on_connect = on_connect_external_subscribe
+external_sub_client.on_disconnect = on_disconnect
+external_sub_client.on_message = on_message_external_subscribe
+external_sub_client.connect(external_sub_broker_address, 1883, 60)
+external_sub_client.loop_start()
+##------------------LOCAL CLIENT----------------------------------------------##
+################################################################################
+# 1. FORWARD
+local_broker_address = local_ip
+# non user
+# non password
+# non id
+local_sub_topic = "local/topic1"
+local_sub_client = mqtt.Client("local1")
+local_sub_client.on_connect = on_connect_local_subscribe
+local_sub_client.on_disconnect = on_disconnect
+local_sub_client.on_message = on_message_local_subscribe
 local_sub_client.connect(local_broker_address, 1883, 60)
 local_sub_client.loop_start()
+# 2. REVERSE
+local_broker_address = local_ip
+# non user
+# non password
+# non id
+local_pub_topic = "local/topic2"
+local_pub_client = mqtt.Client("local2")
+local_pub_client.on_connect = on_connect_local_publish
+local_pub_client.on_disconnect = on_disconnect
+# publish don't need on_message
+local_pub_client.connect(local_broker_address, 1883, 60)
+local_pub_client.loop_start()
+###############################################################################
 # COAP
 class server_put(resource.Resource):
     def __init__(self):
@@ -110,7 +174,7 @@ class server_put(resource.Resource):
 
     async def render_put(self, request):
         coap_payload = request.payload.decode('utf-8')
-        print('PUT payload CoAP: %s' % coap_payload)
+        # print('PUT payload CoAP: %s' % coap_payload)
         global humidity_inside
         humidity_inside = coap_payload
         self.set_content(request.payload)
@@ -127,7 +191,7 @@ async def main():
     root = resource.Site()
     root.add_resource(['put'], server_put())
     root.add_resource(['get'], server_get())
-    await aiocoap.Context.create_server_context(root, bind=(local_broker_address, 5683))
+    await aiocoap.Context.create_server_context(root, bind=(local_ip, 5683))
     # Run forever
     await asyncio.Event().wait()
 
