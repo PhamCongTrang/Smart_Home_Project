@@ -35,50 +35,38 @@ print(f"LOCAL IP: {local_ip}")
 #####-----------------FORWARD--------------------------------------#
 def on_connect_external_publish(client, userdata, flags, rc):
     if rc == 0:
-        # print("Connected to publish MQTT broker")
-        temp = 0
+        print("Connected to publish Thingsboard MQTT broker")
     else:
         print(f"Connection failed with error code {rc}")
 
 def on_connect_local_subscribe(client, userdata, flags, rc):
     if rc == 0:
-        # print("Connected to publish MQTT broker")
-        temp = 1
+        print("Connected to subscribe local MQTT broker")
         client.subscribe("local/topic1")
     else:
         print(f"Connection failed with error code {rc}")
 
 def on_message_local_subscribe(client, userdata, msg):
     msg.payload = msg.payload.decode("utf-8")
-    # print(f"Received message on topic {msg.topic}: {msg.payload}")
-    # if len(msg.payload) < 3:
-    #     return msg.payload
-    # else:
-    #     return 0
+
     global temperature_inside
     temperature_inside = msg.payload
     external_pub_payload = f'{{"humidity_in": {humidity_inside},"temperature_in": {temperature_inside}}}'
-    # Print the result
-    # print(external_pub_payload)
-    # Publish telemetry data to Thingboard
-    external_pub_client.publish(telemetry_pub_topic, external_pub_payload, qos=1)
-    # return msg.payload
-    # Publish the received message to another topic on the publish broker
-    # client.publish("phamcongtranghd@gmail.com/data", msg.payload)
+    print(external_pub_payload)
+
+    external_pub_client.publish(telemetry_pub_topic, external_pub_payload, qos = 1)
 #####-----------------REVERSE--------------------------------------#
 def on_connect_local_publish(client, userdata, flags, rc):
     if rc == 0:
-        print("Connected to publish MQTT broker")
-        local_pub_client.publish(telemetry_pub_topic, "HELLO", qos=1)
-        temp = 0
+        print("Connected to publish local MQTT broker")
+        local_pub_client.publish(local_pub_topic, "HELLO", qos=1)
     else:
         print(f"Connection failed with error code {rc}")
 
 def on_connect_external_subscribe(client, userdata, flags, rc):
     if rc == 0:
         print("Connected to subscribe MAQIATTO MQTT broker")
-        temp = 1
-        client.subscribe(external_sub_broker_address)
+        client.subscribe(telemetry_sub_topic) # client.sub
     else:
         print(f"Connection failed with error code {rc}")
 
@@ -91,13 +79,10 @@ def on_message_external_subscribe(client, userdata, msg):
     # local_pub_payload = f'{{"humidity_in": {humidity_inside},"temperature_in": {temperature_inside}}}'
     local_pub_payload = command_inside
     print(local_pub_payload)
-    # Publish telemetry data to Local
-    local_pub_client.publish(telemetry_pub_topic, local_pub_payload, qos=1)
-    # return msg.payload
-    # Publish the received message to another topic on the publish broker
-    # client.publish("phamcongtranghd@gmail.com/data", msg.payload)
+    local_pub_client.publish(local_pub_topic, local_pub_payload, qos=1)
+
 def on_disconnect(client, userdata, rc):
-    # print("Disconnected from MQTT broker")
+    print("Disconnected from MQTT broker")
     temp = 1
 ##--------------------EXTERNAL CLIENT-----------------------------------------##
 ###############################################################################
@@ -121,7 +106,7 @@ external_pub_client.loop_start()
 external_sub_broker_address = "maqiatto.com"
 external_sub_username = "phamcongtranghd@gmail.com" # fix 3 dong nay, cho Hoang cung cap user, password, id
 external_sub_password = "externalbroker"
-external_sub_client_id = "70k9jt9qh34w5njkdq4d"
+external_sub_client_id = "mqttx_20002"
 # MQTT topic for publishing telemetry data
 telemetry_sub_topic = "phamcongtranghd@gmail.com/cmd" # de y topic
 # Create MQTT client
