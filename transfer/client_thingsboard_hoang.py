@@ -15,7 +15,8 @@ temperature_inside = ""
 humidity_inside = ""
 temperature_outside = ""
 humidity_outside = ""
-
+command_inside = ""
+command_outside = ""
 def get_local_ip():
     try:
         # Get the local host name
@@ -55,11 +56,11 @@ def on_message(client, userdata, msg):
     #     return 0
     global temperature_inside
     temperature_inside = msg.payload
-    external_payload = f'{{"humidity_in": {humidity_inside},"temperature_in": {temperature_inside}}}'
+    external_pub_payload = f'{{"humidity_in": {humidity_inside},"temperature_in": {temperature_inside}}}'
     # Print the result
-    print(external_payload)
+    print(external_pub_payload)
     # Publish telemetry data to Thingboard
-    external_client.publish(telemetry_topic, external_payload, qos=1)
+    external_pub_client.publish(telemetry_topic, external_pub_payload, qos=1)
     # return msg.payload
     # Publish the received message to another topic on the publish broker
     # client.publish("phamcongtranghd@gmail.com/data", msg.payload)
@@ -68,33 +69,32 @@ def on_disconnect(client, userdata, rc):
     # print("Disconnected from MQTT broker")
     temp = 1
 # Thingboard MQTT broker details
-external_broker_address = "mqtt.thingsboard.cloud"
+external_pub_broker_address = "mqtt.thingsboard.cloud"
 broker_port = 1883
 username = "iot_g17"
 password = "12345678"
-external_client_id = "70k9jt9qh34w5njkdq4d"  # You can choose any unique client ID
+external_pub_client_id = "70k9jt9qh34w5njkdq4d"  # You can choose any unique client ID
 # Mosquitto MQTT broker details
-# local_broker_address = get_local_ip
 
 # MQTT topic for publishing telemetry data
 telemetry_topic = "v1/devices/me/sensor"
 
 # Create MQTT client
-external_client = mqtt.Client(external_client_id)
-external_client.username_pw_set(username, password)
-external_client.on_connect = on_connect_publish
-external_client.on_disconnect = on_disconnect
+external_pub_client = mqtt.Client(external_pub_client_id)
+external_pub_client.username_pw_set(username, password)
+external_pub_client.on_connect = on_connect_publish
+external_pub_client.on_disconnect = on_disconnect
 
-local_client = mqtt.Client()
-local_client.on_connect = on_connect_subscribe
-local_client.on_disconnect = on_disconnect
-local_client.on_message = on_message
+local_sub_client = mqtt.Client()
+local_sub_client.on_connect = on_connect_subscribe
+local_sub_client.on_disconnect = on_disconnect
+local_sub_client.on_message = on_message
 # Connect to Thingboard MQTT broker
-external_client.connect(external_broker_address, broker_port, 60)
-external_client.loop_start()
+external_pub_client.connect(external_pub_broker_address, broker_port, 60)
+external_pub_client.loop_start()
 
-local_client.connect(local_broker_address, 1883, 60)
-local_client.loop_start()
+local_sub_client.connect(local_broker_address, 1883, 60)
+local_sub_client.loop_start()
 # COAP
 class server_put(resource.Resource):
     def __init__(self):
@@ -130,8 +130,6 @@ async def main():
     await aiocoap.Context.create_server_context(root, bind=(local_broker_address, 5683))
     # Run forever
     await asyncio.Event().wait()
-# while 1>0:
-#     print("Wait")
 
 if __name__ == "__main__":
     asyncio.run(main())
@@ -139,15 +137,15 @@ if __name__ == "__main__":
         while True:
             # Format the string with the random temperature
             # payload = f'{{"humidity_in": {random_humidity_inside},"temperature_in": {random_temperature_inside}, "humidity_out": {random_humidity_outside},"temperature_out": {random_temperature_outside}}}'
-            external_payload = f'{{"humidity_in": {humidity_inside},"temperature_in": {temperature_inside}}}'
-            print(external_payload)
-            # Publish telemetry data to Thingboard
-            external_client.publish(telemetry_topic, external_payload, qos=1)
+            # external_pub_payload = f'{{"humidity_in": {humidity_inside},"temperature_in": {temperature_inside}}}'
+            # print(external_pub_payload)
+            # # Publish telemetry data to Thingboard
+            # external_pub_client.publish(telemetry_topic, external_pub_payload, qos=1)
 
             # Sleep for some time before publishing the next data (e.g., every 5 seconds)
             time.sleep(1)
 
     except KeyboardInterrupt:
         # Disconnect on keyboard interrupt
-        external_client.disconnect()
+        external_pub_client.disconnect()
         print("Disconnected from Thingboard MQTT broker")
