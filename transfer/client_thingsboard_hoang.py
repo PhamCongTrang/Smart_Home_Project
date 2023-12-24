@@ -52,6 +52,7 @@ def on_message_local_subscribe(client, userdata, msg):
     global temperature_inside
     temperature_inside = msg.payload
     external_pub_payload = f'{{"humidity_in": {humidity_inside},"temperature_in": {temperature_inside}}}'
+    # external_pub_payload = f'{{"humidity_in": 80,"temperature_in": {temperature_inside}}}'
     print(external_pub_payload)
 
     external_pub_client.publish(telemetry_pub_topic, external_pub_payload, qos = 1)
@@ -75,14 +76,16 @@ def on_message_external_subscribe(client, userdata, msg):
     print(f"Received message on topic {msg.topic}: {msg.payload}")
 
     global command_inside
+    global command_outside
     command_inside = msg.payload
+    command_outside = msg.payload
     # local_pub_payload = f'{{"humidity_in": {humidity_inside},"temperature_in": {temperature_inside}}}'
     local_pub_payload = command_inside
     print(local_pub_payload)
     local_pub_client.publish(local_pub_topic, local_pub_payload, qos=1)
 
 def on_disconnect(client, userdata, rc):
-    print("Disconnected from MQTT broker")
+    print(f"Disconnected from MQTT broker {client.name}")
     temp = 1
 ##--------------------EXTERNAL CLIENT-----------------------------------------##
 ###############################################################################
@@ -159,16 +162,16 @@ class server_put(resource.Resource):
 
     async def render_put(self, request):
         coap_payload = request.payload.decode('utf-8')
-        # print('PUT payload CoAP: %s' % coap_payload)
+        # print('PUT payload CoAP: %s' % coap_payload) // bat dong nay se lam thingsboard khong ve duoc do thi
         global humidity_inside
         humidity_inside = coap_payload
         self.set_content(request.payload)
-        return aiocoap.Message(code=aiocoap.CHANGED, payload=b"server_receive_put")
+        return aiocoap.Message(code=aiocoap.CHANGED, payload = command_outside)
 
 class server_get(resource.Resource):
 
     async def render_get(self, request):
-        return aiocoap.Message(payload=b"server_receive_get")
+        return aiocoap.Message(payload = command_outside)
 logging.getLogger().addHandler(logging.NullHandler())
 
 async def main():
