@@ -166,7 +166,7 @@ void loop()
   Serial.println(numberString);
   // int msgid = coap.get(IPAddress(192, 168, 66, 233), 5683, "whoami");
   int msgid1 = coap.put(IPAddress(server_ip), 5683, "put", numberString);
-  int msgid = coap.get(IPAddress(server_ip), 5683, "get");
+//   int msgid = coap.get(IPAddress(server_ip), 5683, "get"); // khong can get cung tu get
 
   delay(1000);
   coap.loop();
