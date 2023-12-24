@@ -53,9 +53,8 @@ def on_message_local_subscribe(client, userdata, msg):
     temperature_inside = msg.payload
     external_pub_payload = f'{{"humidity_in": {humidity_inside},"temperature_in": {temperature_inside}}}'
     # external_pub_payload = f'{{"humidity_in": 80,"temperature_in": {temperature_inside}}}'
-    print(external_pub_payload)
-
     external_pub_client.publish(telemetry_pub_topic, external_pub_payload, qos = 1)
+    print(external_pub_payload) #nguyen nhan khac cung lam timeline thingsboard khong ve do thi
 #####-----------------REVERSE--------------------------------------#
 def on_connect_local_publish(client, userdata, flags, rc):
     if rc == 0:
