@@ -4,8 +4,8 @@
 #include <PubSubClient.h>
 // Cập nhật thông tin
 // Thông tin về wifi
-#define ssid "TCP"
-#define password "trangcongpham"
+#define ssid "STM32F103C8T6"
+#define password "phong409"
 // Thông tin về MQTT Broker
 #define mqtt_server "maqiatto.com" // Thay bằng thông tin của bạn
 #define mqtt_topic_pub "phamcongtranghd@gmail.com/topic1"   //Giữ nguyên nếu bạn tạo topic tên là demo
