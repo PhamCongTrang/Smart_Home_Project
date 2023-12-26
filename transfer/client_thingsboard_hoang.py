@@ -10,13 +10,22 @@ import asyncio
 import aiocoap.resource as resource
 from aiocoap.numbers.contentformat import ContentFormat
 import aiocoap
+#Json
+import json
 # Khai bao cac bien Global, la cac message
-temperature_inside = ""
-humidity_inside = ""
-temperature_outside = ""
-humidity_outside = ""
-command_inside = ""
-command_outside = ""
+temperature_inside = 0
+humidity_inside = 0
+temperature_outside = 0
+humidity_outside = 0
+socket_cmd = 0
+pump_cmd = 0
+zero_Doc = '{}'
+inside_sub_doc = json.loads(zero_Doc)
+outside_sub_doc = json.loads(zero_Doc)
+inside_pub_doc = json.loads(zero_Doc)
+outside_pub_doc = json.loads(zero_Doc)
+thingsboard_sub_doc = json.loads(zero_Doc)
+thingsboard_pub_doc = json.loads(zero_Doc)
 def get_local_ip():
     try:
         # Get the local host name
@@ -50,9 +59,12 @@ def on_message_local_subscribe(client, userdata, msg):
     msg.payload = msg.payload.decode("utf-8")
 
     global temperature_inside
-    temperature_inside = msg.payload
-    external_pub_payload = f'{{"humidity_in": {humidity_inside},"temperature_in": {temperature_inside}}}'
-    # external_pub_payload = f'{{"humidity_in": 80,"temperature_in": {temperature_inside}}}'
+    global humidity_inside
+    inside_sub_doc = json.loads(msg.payload)
+    temperature_inside = inside_sub_doc["temperature_inside"]
+    humidity_inside = inside_sub_doc["humidity_inside"]
+
+    external_pub_payload = f'{{"temperature_inside":{temperature_inside},"humidity_inside":{humidity_inside},"temperature_outside":{temperature_outside},"humidity_outside":{humidity_outside}}}'
     external_pub_client.publish(telemetry_pub_topic, external_pub_payload, qos = 1)
     print(external_pub_payload) #nguyen nhan khac cung lam timeline thingsboard khong ve do thi
 #####-----------------REVERSE--------------------------------------#
@@ -74,17 +86,17 @@ def on_message_external_subscribe(client, userdata, msg):
     # msg.payload = msg.payload.decode("utf-8")
     print(f"Received message on topic {msg.topic}: {msg.payload}")
 
-    global command_inside
-    global command_outside
-    command_inside = msg.payload
-    command_outside = msg.payload
+    global socket_cmd
+    global pump_cmd
+    socket_cmd = msg.payload
+    pump_cmd = msg.payload
     # local_pub_payload = f'{{"humidity_in": {humidity_inside},"temperature_in": {temperature_inside}}}'
-    local_pub_payload = command_inside
+    local_pub_payload = socket_cmd
     print(local_pub_payload)
     local_pub_client.publish(local_pub_topic, local_pub_payload, qos=1)
 
 def on_disconnect(client, userdata, rc):
-    print(f"Disconnected from MQTT broker {client.name}")
+    print(f"Disconnected from MQTT broker")
     temp = 1
 ##--------------------EXTERNAL CLIENT-----------------------------------------##
 ###############################################################################
@@ -162,15 +174,19 @@ class server_put(resource.Resource):
     async def render_put(self, request):
         coap_payload = request.payload.decode('utf-8')
         # print('PUT payload CoAP: %s' % coap_payload) // bat dong nay se lam thingsboard khong ve duoc do thi
-        global humidity_inside
-        humidity_inside = coap_payload
+        global temperature_outside
+        global humidity_outside
+        inside_sub_doc = json.loads(coap_payload)
+        temperature_outside = inside_sub_doc["temperature_outside"]
+        humidity_outside = inside_sub_doc["humidity_outside"]
+        # humidity_inside = coap_payload
         self.set_content(request.payload)
-        return aiocoap.Message(code=aiocoap.CHANGED, payload = command_outside)
+        return aiocoap.Message(code=aiocoap.CHANGED, payload = pump_cmd)
 
 class server_get(resource.Resource):
 
     async def render_get(self, request):
-        return aiocoap.Message(payload = command_outside)
+        return aiocoap.Message(payload = pump_cmd)
 logging.getLogger().addHandler(logging.NullHandler())
 
 async def main():
