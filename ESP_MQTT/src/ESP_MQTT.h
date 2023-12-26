@@ -6,7 +6,7 @@
 
 #define ssid_1 "TCP"
 #define password_1 "trangcongpham"
-#define mqtt_server_1 "192.168.168.43"
+#define mqtt_server_1 "192.168.22.43"
 
 #define ssid_2 "STM32F103C8T6"
 #define password_2 "phong409"
@@ -22,7 +22,7 @@
 // JSON
 DynamicJsonDocument PubDoc(1024);
 DynamicJsonDocument SubDoc(1024);
-int interval_time = 1000;
+int interval_time_inside = 1000;
 int socket_cmd;
 const uint16_t mqtt_port = 1883;
 
@@ -30,7 +30,7 @@ WiFiClient espClient;
 PubSubClient client(espClient);
 long lastMsg = 0;
 char pub_payload[50], sub_payload[50];
-int temperature_inside_value = 0, humidity_inside_value = 0;
+int temperature_inside = 0, humidity_inside = 0;
 
 // Hàm kết nối wifi
 int wifi_1()
@@ -139,9 +139,9 @@ void callback(char *topic, byte *payload, unsigned int length)
         sub_payload[i] = (char)payload[i];
     }
     deserializeJson(SubDoc, sub_payload);
-    interval_time = SubDoc["interval_time"];
+    interval_time_inside = SubDoc["interval_time_inside"];
     socket_cmd = SubDoc["socket_cmd"];
-    Serial.print("interval_time:"); Serial.print(interval_time); Serial.print(",socket_cmd:"); Serial.println(socket_cmd);
+    Serial.print("interval_time_inside:"); Serial.print(interval_time_inside); Serial.print(",socket_cmd:"); Serial.println(socket_cmd);
 }
 void reconnect()
 {
@@ -183,14 +183,14 @@ void loop()
         reconnect();
     }
     client.loop();
-    temperature_inside_value = rand() % 10 + 10;
-    humidity_inside_value = rand() % 10 + 50;
-    PubDoc["temperature_in"] = temperature_inside_value;
-    PubDoc["humidity_in"] = humidity_inside_value;
+    temperature_inside = rand() % 10 + 10;
+    humidity_inside = rand() % 10 + 50;
+    PubDoc["temperature_inside"] = temperature_inside;
+    PubDoc["humidity_inside"] = humidity_inside;
     serializeJson(PubDoc, pub_payload);
-    // snprintf(pub_payload, 75, "{\"temperature_in\": %d, \"humidity_in\": %d}", temperature_inside_value, humidity_inside_value);
+    // snprintf(pub_payload, 75, "{\"temperature_in\": %d, \"humidity_in\": %d}", temperature_inside, humidity_inside);
     Serial.print("Publish message: ");
     Serial.println(pub_payload);
     client.publish(mqtt_topic_pub, pub_payload);
-    delay(1000);
+    delay(2000);
 }

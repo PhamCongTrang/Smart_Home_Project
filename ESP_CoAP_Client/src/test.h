@@ -40,6 +40,7 @@ void callback_response(CoapPacket &packet, IPAddress ip, int port)
     deserializeJson(SubDoc, sub_payload);
     interval_time_outside = SubDoc["interval_time_outside"];
     pump_cmd = SubDoc["pump_cmd"];
+    Serial.print("Receive: ");
     Serial.print("interval_time_outside:"); Serial.print(interval_time_outside); Serial.print(",pump_cmd:"); Serial.println(pump_cmd);
 }
 // Hàm kết nối wifi
@@ -174,6 +175,7 @@ void loop()
     PubDoc["temperature_outside"] = temperature_outside;
     PubDoc["humidity_outside"] = humidity_outside;
     serializeJson(PubDoc, pub_payload);
+    Serial.print("Send: ");
     Serial.println(pub_payload);
     // char numberString[20];
     // sprintf(numberString, "%d", number);
@@ -183,6 +185,6 @@ void loop()
     coap.put(IPAddress(server_ip_1), 5683, "put", pub_payload);
     //   int msgid = coap.get(IPAddress(server_ip), 5683, "get"); // khong can get cung tu get
 
-    delay(1000);
+    delay(2000);
     coap.loop();
 }
