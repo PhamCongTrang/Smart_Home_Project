@@ -2,7 +2,7 @@
 #include <Arduino.h>
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
-#include "json/json.h"
+#include <ArduinoJson.h>
 
 #define ssid_1 "TCP"
 #define password_1 "trangcongpham"
@@ -13,19 +13,23 @@
 #define mqtt_server_2 "192.168.0.104"
 
 #define ssid_3 "Hust_TVTQB_Dien-Dien-tu"
-#define mqtt_server_3 "192.168.66.153"
+#define mqtt_server_3 "192.168.66.163"
 
 #define mqtt_topic_pub "local/topic1"
 #define mqtt_topic_sub "local/topic2"
 #define mqtt_user ""
 #define mqtt_pwd ""
-
+// JSON
+DynamicJsonDocument PubDoc(1024);
+DynamicJsonDocument SubDoc(1024);
+int interval_time = 1000;
+int socket_cmd;
 const uint16_t mqtt_port = 1883;
 
 WiFiClient espClient;
 PubSubClient client(espClient);
 long lastMsg = 0;
-char msg[50];
+char pub_payload[50], sub_payload[50];
 int temperature_inside_value = 0, humidity_inside_value = 0;
 
 // Hàm kết nối wifi
@@ -127,14 +131,17 @@ int Auto_Connect_Wifi()
 // Hàm call back để nhận dữ liệu
 void callback(char *topic, byte *payload, unsigned int length)
 {
-    Serial.print("Message arrived [");
-    Serial.print(topic);
-    Serial.print("] ");
+    // Serial.print("Message arrived [");
+    // Serial.print(topic);
+    // Serial.print("] ");
     for (unsigned int i = 0; i < length; i++)
     {
-        Serial.print((char)payload[i]);
+        sub_payload[i] = (char)payload[i];
     }
-    Serial.println();
+    deserializeJson(SubDoc, sub_payload);
+    interval_time = SubDoc["interval_time"];
+    socket_cmd = SubDoc["socket_cmd"];
+    Serial.print("interval_time:"); Serial.print(interval_time); Serial.print(",socket_cmd:"); Serial.println(socket_cmd);
 }
 void reconnect()
 {
@@ -178,10 +185,12 @@ void loop()
     client.loop();
     temperature_inside_value = rand() % 10 + 10;
     humidity_inside_value = rand() % 10 + 50;
-
-    snprintf(msg, 75, "{\"temperature_in\": \"%d\", \"humidity_in\": \"%d\"}", temperature_inside_value, humidity_inside_value);
+    PubDoc["temperature_in"] = temperature_inside_value;
+    PubDoc["humidity_in"] = humidity_inside_value;
+    serializeJson(PubDoc, pub_payload);
+    // snprintf(pub_payload, 75, "{\"temperature_in\": %d, \"humidity_in\": %d}", temperature_inside_value, humidity_inside_value);
     Serial.print("Publish message: ");
-    Serial.println(msg);
-    client.publish(mqtt_topic_pub, msg);
+    Serial.println(pub_payload);
+    client.publish(mqtt_topic_pub, pub_payload);
     delay(1000);
 }
