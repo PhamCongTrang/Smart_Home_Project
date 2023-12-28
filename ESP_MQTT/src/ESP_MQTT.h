@@ -139,9 +139,10 @@ void callback(char *topic, byte *payload, unsigned int length)
         sub_payload[i] = (char)payload[i];
     }
     deserializeJson(SubDoc, sub_payload);
-    if (SubDoc["interval_time_inside"] != 0)
+    int temp = SubDoc["interval_time_inside"];
+    if ( temp != 0)
     {
-        interval_time_inside = SubDoc["interval_time_inside"];
+        interval_time_inside = temp;
     }
     socket_cmd = SubDoc["socket_cmd"];
 }
