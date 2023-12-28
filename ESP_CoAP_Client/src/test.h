@@ -14,7 +14,7 @@
 
 #define ssid_3 "Hust_TVTQB_Dien-Dien-tu"
 #define server_ip_3 192, 168, 66, 163
-
+#define ledPin D4
 // JSON
 DynamicJsonDocument PubDoc(1024);
 DynamicJsonDocument SubDoc(1024);
@@ -36,9 +36,13 @@ void callback_response(CoapPacket &packet, IPAddress ip, int port)
 
     memcpy(sub_payload, packet.payload, packet.payloadlen);
     sub_payload[packet.payloadlen] = NULL;
-    Serial.print("Sub Payload: "); Serial.println(sub_payload);
+    // Serial.print("Sub Payload: "); Serial.println(sub_payload);
     deserializeJson(SubDoc, sub_payload);
-    interval_time_outside = SubDoc["interval_time_outside"];
+    int temp = SubDoc["interval_time_inside"];
+    if (temp != 0)
+    {
+        interval_time_outside = temp;
+    }
     pump_cmd = SubDoc["pump_cmd"];
     Serial.print("Receive: ");
     Serial.print("interval_time_outside:"); Serial.print(interval_time_outside); Serial.print(",pump_cmd:"); Serial.println(pump_cmd);
@@ -142,7 +146,7 @@ int Auto_Connect_Wifi()
 void setup()
 {
     Serial.begin(115200);
-
+    pinMode(ledPin, OUTPUT);
     Auto_Connect_Wifi();
 
     // client response callback.
@@ -175,7 +179,10 @@ void loop()
     // int msgid = coap.get(IPAddress(192, 168, 66, 233), 5683, "whoami");
     coap.put(IPAddress(server_ip_1), 5683, "put", pub_payload);
     //   int msgid = coap.get(IPAddress(server_ip), 5683, "get"); // khong can get cung tu get
-
-    delay(2000);
+    if(pump_cmd == 1)
+        digitalWrite(ledPin, HIGH);
+    if(pump_cmd == -1)
+        digitalWrite(ledPin, LOW);
+    delay(interval_time_outside);
     coap.loop();
 }
