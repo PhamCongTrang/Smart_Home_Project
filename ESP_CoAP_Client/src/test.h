@@ -14,7 +14,7 @@
 
 #define ssid_3 "Hust_TVTQB_Dien-Dien-tu"
 #define server_ip_3 192, 168, 66, 163
-#define ledPin D4
+const int ledPin = D4;
 // JSON
 DynamicJsonDocument PubDoc(1024);
 DynamicJsonDocument SubDoc(1024);
@@ -22,7 +22,7 @@ int interval_time_outside = 1000;
 int pump_cmd = 0;
 
 char pub_payload[50], sub_payload[50];
-int temperature_outside = 0, humidity_outside = 0;
+int temperature_outside = 200, humidity_outside = 50;
 // CoAP client response callback
 void callback_response(CoapPacket &packet, IPAddress ip, int port);
 
@@ -38,7 +38,7 @@ void callback_response(CoapPacket &packet, IPAddress ip, int port)
     sub_payload[packet.payloadlen] = NULL;
     // Serial.print("Sub Payload: "); Serial.println(sub_payload);
     deserializeJson(SubDoc, sub_payload);
-    int temp = SubDoc["interval_time_inside"];
+    int temp = SubDoc["interval_time_outside"];
     if (temp != 0)
     {
         interval_time_outside = temp;
@@ -148,7 +148,7 @@ void setup()
     Serial.begin(115200);
     pinMode(ledPin, OUTPUT);
     Auto_Connect_Wifi();
-
+    digitalWrite(ledPin, LOW);
     // client response callback.
     // this endpoint is single callback.
     Serial.println("server_ip:");
@@ -165,8 +165,12 @@ void loop()
     // To test, use libcoap, microcoap server...etc
     // int msgid = coap.put(IPAddress(10, 0, 0, 1), 5683, "light", "1");
     // Serial.println("Send Request");
-    temperature_outside = rand() % 15 + 10;
-    humidity_outside = rand() % 10 + 70;
+    temperature_outside += rand() % 11 - 5;
+    if (pump_cmd == 1) temperature_outside -= int(interval_time_outside/1000);
+    if (temperature_outside > 500) temperature_outside = 500;
+    if (temperature_outside < 100) temperature_outside = 100;
+
+    humidity_outside += rand() % 7 - 3;
     PubDoc["temperature_outside"] = temperature_outside;
     PubDoc["humidity_outside"] = humidity_outside;
     serializeJson(PubDoc, pub_payload);
@@ -181,7 +185,7 @@ void loop()
     //   int msgid = coap.get(IPAddress(server_ip), 5683, "get"); // khong can get cung tu get
     if(pump_cmd == 1)
         digitalWrite(ledPin, HIGH);
-    if(pump_cmd == -1)
+    if(pump_cmd == -1 || pump_cmd == 0)
         digitalWrite(ledPin, LOW);
     delay(interval_time_outside);
     coap.loop();
