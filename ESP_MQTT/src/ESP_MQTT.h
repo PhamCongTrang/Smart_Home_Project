@@ -139,9 +139,11 @@ void callback(char *topic, byte *payload, unsigned int length)
         sub_payload[i] = (char)payload[i];
     }
     deserializeJson(SubDoc, sub_payload);
-    interval_time_inside = SubDoc["interval_time_inside"];
+    if (SubDoc["interval_time_inside"] != 0)
+    {
+        interval_time_inside = SubDoc["interval_time_inside"];
+    }
     socket_cmd = SubDoc["socket_cmd"];
-    Serial.print("interval_time_inside:"); Serial.print(interval_time_inside); Serial.print(",socket_cmd:"); Serial.println(socket_cmd);
 }
 void reconnect()
 {
@@ -192,5 +194,7 @@ void loop()
     Serial.print("Publish message: ");
     Serial.println(pub_payload);
     client.publish(mqtt_topic_pub, pub_payload);
-    delay(2000);
+    Serial.print("Receive: ");
+    Serial.print("interval_time_inside:"); Serial.print(interval_time_inside); Serial.print(",socket_cmd:"); Serial.println(socket_cmd);
+    delay(interval_time_inside);
 }
