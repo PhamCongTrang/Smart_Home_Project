@@ -36,7 +36,7 @@ void callback_response(CoapPacket &packet, IPAddress ip, int port)
 
     memcpy(sub_payload, packet.payload, packet.payloadlen);
     sub_payload[packet.payloadlen] = NULL;
-
+    Serial.print("Sub Payload: "); Serial.println(sub_payload);
     deserializeJson(SubDoc, sub_payload);
     interval_time_outside = SubDoc["interval_time_outside"];
     pump_cmd = SubDoc["pump_cmd"];
@@ -141,18 +141,9 @@ int Auto_Connect_Wifi()
 }
 void setup()
 {
-    Serial.begin(9600);
-    // WiFi.begin(ssid, password);
-    // while (WiFi.status() != WL_CONNECTED)
-    // {
-    //   delay(500);
-    //   Serial.print(".");
-    // }
+    Serial.begin(115200);
+
     Auto_Connect_Wifi();
-    // Serial.println("");
-    // Serial.println("WiFi connected");
-    // Serial.println("IP address: ");
-    // Serial.println(WiFi.localIP());
 
     // client response callback.
     // this endpoint is single callback.
