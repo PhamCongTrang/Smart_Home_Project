@@ -6,23 +6,31 @@
 
 #define ssid_1 "TCP"
 #define password_1 "trangcongpham"
-#define server_ip_1 192, 168, 22, 43
+#define server_ip_1 192, 168, 97, 43
 
 #define ssid_2 "STM32F103C8T6"
 #define password_2 "phong409"
 #define server_ip_2 192, 168, 0, 104
 
 #define ssid_3 "Hust_TVTQB_Dien-Dien-tu"
-#define server_ip_3 192, 168, 66, 163
+#define server_ip_3 192, 168, 66, 214
 const int ledPin = D4;
 // JSON
 DynamicJsonDocument PubDoc(1024);
 DynamicJsonDocument SubDoc(1024);
-int interval_time_outside = 1000;
-int pump_cmd = 0;
+int interval_time_outside_set = 1000;
+int pump_cmd_set = 0;
 
-char pub_payload[50], sub_payload[50];
-int temperature_outside = 200, humidity_outside = 50;
+char pub_payload[70], sub_payload[70];
+int temperature_outside = 18, humidity_outside = 50;
+int ip1, ip2, ip3, ip4;
+void separate_ip(int x, int y, int z, int t, int * ptr_ip1, int * ptr_ip2, int * ptr_ip3, int * ptr_ip4)
+{
+    *ptr_ip1 = x;
+    *ptr_ip2 = y;
+    *ptr_ip3 = z;
+    *ptr_ip4 = t;
+}
 // CoAP client response callback
 void callback_response(CoapPacket &packet, IPAddress ip, int port);
 
@@ -38,14 +46,13 @@ void callback_response(CoapPacket &packet, IPAddress ip, int port)
     sub_payload[packet.payloadlen] = NULL;
     // Serial.print("Sub Payload: "); Serial.println(sub_payload);
     deserializeJson(SubDoc, sub_payload);
-    int temp = SubDoc["interval_time_outside"];
+    int temp = SubDoc["interval_time_outside_set"];
     if (temp != 0)
     {
-        interval_time_outside = temp;
+        interval_time_outside_set = temp;
     }
-    pump_cmd = SubDoc["pump_cmd"];
-    Serial.print("Receive: ");
-    Serial.print("interval_time_outside:"); Serial.print(interval_time_outside); Serial.print(",pump_cmd:"); Serial.println(pump_cmd);
+    pump_cmd_set = SubDoc["pump_cmd_set"];
+    
 }
 // Hàm kết nối wifi
 int wifi_1()
@@ -119,12 +126,12 @@ int Auto_Connect_Wifi()
     int try_wifi = 0;
     while (1 == 1)
     {
-        try_wifi = wifi_1();
-        if (try_wifi != 0)
-            break;
-        try_wifi = wifi_2();
-        if (try_wifi != 0)
-            break;
+        // try_wifi = wifi_1();
+        // if (try_wifi != 0)
+        //     break;
+        // try_wifi = wifi_2();
+        // if (try_wifi != 0)
+        //     break;
         try_wifi = wifi_3();
         if (try_wifi != 0)
             break;
@@ -132,13 +139,13 @@ int Auto_Connect_Wifi()
     switch (try_wifi)
     {
     case 1:
-#define server_ip server_ip_1
+        separate_ip(server_ip_1, &ip1, &ip2, &ip3, &ip4);
         break;
     case 2:
-#define server_ip server_ip_2
+        separate_ip(server_ip_2, &ip1, &ip2, &ip3, &ip4);
         break;
     case 3:
-#define server_ip server_ip_3
+        separate_ip(server_ip_3, &ip1, &ip2, &ip3, &ip4);
         break;
     }
     return try_wifi;
@@ -161,18 +168,26 @@ void setup()
 
 void loop()
 {
-    // send GET or PUT coap request to CoAP server.
-    // To test, use libcoap, microcoap server...etc
-    // int msgid = coap.put(IPAddress(10, 0, 0, 1), 5683, "light", "1");
-    // Serial.println("Send Request");
-    temperature_outside += rand() % 11 - 5;
-    if (pump_cmd == 1) temperature_outside -= int(interval_time_outside/1000);
-    if (temperature_outside > 500) temperature_outside = 500;
-    if (temperature_outside < 100) temperature_outside = 100;
+    if(Serial.available() > 0)
+    {
+        if(Serial.read() == 't')
+            pump_cmd_set = 1;
+        if(Serial.read() == 'p')
+            pump_cmd_set = -1;
+    }
+    Serial.print("Receive: ");
+    Serial.print("interval_time_outside_set:"); Serial.print(interval_time_outside_set); Serial.print(",pump_cmd_set:"); Serial.println(pump_cmd_set);
+    temperature_outside += rand() % 4 - 1;
+    if (pump_cmd_set == 1) temperature_outside -= 4*interval_time_outside_set/ 1000;
+    if (temperature_outside > 50) temperature_outside = 50;
+    if (temperature_outside < 5) temperature_outside = 5;
 
     humidity_outside += rand() % 7 - 3;
+    if (humidity_outside > 100) humidity_outside = 100;
+    if (humidity_outside < 0) humidity_outside = 0;
     PubDoc["temperature_outside"] = temperature_outside;
     PubDoc["humidity_outside"] = humidity_outside;
+    PubDoc["pump_cmd_get"] = pump_cmd_set;
     serializeJson(PubDoc, pub_payload);
     Serial.print("Send: ");
     Serial.println(pub_payload);
@@ -181,12 +196,12 @@ void loop()
     // Serial.print("Put: ");
     // Serial.println(numberString);
     // int msgid = coap.get(IPAddress(192, 168, 66, 233), 5683, "whoami");
-    coap.put(IPAddress(server_ip_1), 5683, "put", pub_payload);
+    coap.put(IPAddress(ip1, ip2, ip3, ip4), 5683, "put", pub_payload);
     //   int msgid = coap.get(IPAddress(server_ip), 5683, "get"); // khong can get cung tu get
-    if(pump_cmd == 1)
-        digitalWrite(ledPin, HIGH);
-    if(pump_cmd == -1 || pump_cmd == 0)
+    if(pump_cmd_set == 1)
         digitalWrite(ledPin, LOW);
-    delay(interval_time_outside);
+    if(pump_cmd_set == -1 || pump_cmd_set == 0)
+        digitalWrite(ledPin, HIGH);
+    delay(interval_time_outside_set);
     coap.loop();
 }
