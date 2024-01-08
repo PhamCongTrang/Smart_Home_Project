@@ -6,31 +6,32 @@
 
 #define ssid_1 "TCP"
 #define password_1 "trangcongpham"
-#define mqtt_server_1 "192.168.22.43"
+#define mqtt_server_1 "192.168.97.43"
 
 #define ssid_2 "STM32F103C8T6"
 #define password_2 "phong409"
 #define mqtt_server_2 "192.168.0.104"
 
 #define ssid_3 "Hust_TVTQB_Dien-Dien-tu"
-#define mqtt_server_3 "192.168.66.163"
+#define mqtt_server_3 "192.168.66.214"
 
 #define mqtt_topic_pub "local/topic1"
 #define mqtt_topic_sub "local/topic2"
 #define mqtt_user ""
 #define mqtt_pwd ""
+const int ledPin = D4;
 // JSON
 DynamicJsonDocument PubDoc(1024);
 DynamicJsonDocument SubDoc(1024);
-int interval_time_inside = 1000;
-int socket_cmd;
+int interval_time_inside_set = 1000;
+int socket_cmd_set = 0;
 const uint16_t mqtt_port = 1883;
 
 WiFiClient espClient;
 PubSubClient client(espClient);
 long lastMsg = 0;
-char pub_payload[50], sub_payload[50];
-int temperature_inside = 0, humidity_inside = 0;
+char pub_payload[70], sub_payload[70];
+int temperature_inside = 25, humidity_inside = 70;
 
 // Hàm kết nối wifi
 int wifi_1()
@@ -104,12 +105,12 @@ int Auto_Connect_Wifi()
     int try_wifi = 0;
     while (1 == 1)
     {
-        try_wifi = wifi_1();
-        if (try_wifi != 0)
-            break;
-        try_wifi = wifi_2();
-        if (try_wifi != 0)
-            break;
+        // try_wifi = wifi_1();
+        // if (try_wifi != 0)
+        //     break;
+        // try_wifi = wifi_2();
+        // if (try_wifi != 0)
+        //     break;
         try_wifi = wifi_3();
         if (try_wifi != 0)
             break;
@@ -139,12 +140,12 @@ void callback(char *topic, byte *payload, unsigned int length)
         sub_payload[i] = (char)payload[i];
     }
     deserializeJson(SubDoc, sub_payload);
-    int temp = SubDoc["interval_time_inside"];
+    int temp = SubDoc["interval_time_inside_set"];
     if ( temp != 0)
     {
-        interval_time_inside = temp;
+        interval_time_inside_set = temp;
     }
-    socket_cmd = SubDoc["socket_cmd"];
+    socket_cmd_set = SubDoc["socket_cmd_set"];
 }
 void reconnect()
 {
@@ -173,6 +174,8 @@ void reconnect()
 void setup()
 {
     Serial.begin(115200);
+    pinMode(ledPin, OUTPUT);
+    digitalWrite(ledPin, LOW);
     Auto_Connect_Wifi();
     client.setCallback(callback);
     srand(time(NULL));
@@ -186,16 +189,36 @@ void loop()
         reconnect();
     }
     client.loop();
-    temperature_inside = rand() % 10 + 10;
-    humidity_inside = rand() % 10 + 50;
+    if(Serial.available() > 0)
+    {
+        if(Serial.read() == 't')
+            socket_cmd_set = 1;
+        if(Serial.read() == 'p')
+            socket_cmd_set = -1;
+    }
+    temperature_inside += rand() % 3 - 1;
+    humidity_inside = rand() % 5 - 2;
+
+    if (socket_cmd_set == -1) temperature_inside -= 4*interval_time_inside_set/ 1000;
+    if (temperature_inside > 60) temperature_inside = 60;
+    if (temperature_inside < 10) temperature_inside = 10;
+
+    if (humidity_inside > 100) humidity_inside = 100;
+    if (humidity_inside < 0) humidity_inside = 0;
+
     PubDoc["temperature_inside"] = temperature_inside;
     PubDoc["humidity_inside"] = humidity_inside;
+    PubDoc["socket_cmd_get"] = socket_cmd_set;
     serializeJson(PubDoc, pub_payload);
     // snprintf(pub_payload, 75, "{\"temperature_in\": %d, \"humidity_in\": %d}", temperature_inside, humidity_inside);
-    Serial.print("Publish message: ");
+    Serial.print("Publish: ");
     Serial.println(pub_payload);
     client.publish(mqtt_topic_pub, pub_payload);
     Serial.print("Receive: ");
-    Serial.print("interval_time_inside:"); Serial.print(interval_time_inside); Serial.print(",socket_cmd:"); Serial.println(socket_cmd);
-    delay(interval_time_inside);
+    Serial.print("interval_time_inside_set:"); Serial.print(interval_time_inside_set); Serial.print(",socket_cmd_set:"); Serial.println(socket_cmd_set);
+    if(socket_cmd_set == 1)
+        digitalWrite(ledPin, LOW);
+    if(socket_cmd_set == -1 || socket_cmd_set == 0)
+        digitalWrite(ledPin, HIGH);
+    delay(interval_time_inside_set);
 }
