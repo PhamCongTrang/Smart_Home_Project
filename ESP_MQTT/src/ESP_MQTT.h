@@ -19,18 +19,29 @@
 #define mqtt_topic_sub "local/topic2"
 #define mqtt_user ""
 #define mqtt_pwd ""
-const int ledPin = D4;
+const int ledPin = D7;
+const int buttonPin = D5;
 // JSON
 DynamicJsonDocument PubDoc(1024);
 DynamicJsonDocument SubDoc(1024);
 int interval_time_inside_set = 1000;
+
 int socket_cmd_set = 0;
+int socket_cmd_set_old = 0;
+int socket_cmd_get = 0;
+int socket_cmd_get_old = 0;
+int button_cmd = 0;
+
+int socket_state = -1;
+unsigned long publish_timer = 0;
+unsigned long button_timer = 0;
+char pub_payload[70];
 const uint16_t mqtt_port = 1883;
 
 WiFiClient espClient;
 PubSubClient client(espClient);
 long lastMsg = 0;
-char pub_payload[70], sub_payload[70];
+
 int temperature_inside = 25, humidity_inside = 70;
 
 // Hàm kết nối wifi
@@ -105,12 +116,12 @@ int Auto_Connect_Wifi()
     int try_wifi = 0;
     while (1 == 1)
     {
-        // try_wifi = wifi_1();
-        // if (try_wifi != 0)
-        //     break;
-        // try_wifi = wifi_2();
-        // if (try_wifi != 0)
-        //     break;
+        try_wifi = wifi_1();
+        if (try_wifi != 0)
+            break;
+        try_wifi = wifi_2();
+        if (try_wifi != 0)
+            break;
         try_wifi = wifi_3();
         if (try_wifi != 0)
             break;
@@ -132,20 +143,31 @@ int Auto_Connect_Wifi()
 // Hàm call back để nhận dữ liệu
 void callback(char *topic, byte *payload, unsigned int length)
 {
-    // Serial.print("Message arrived [");
-    // Serial.print(topic);
-    // Serial.print("] ");
+    char sub_payload[70];
+    Serial.print("Message arrived [");
+    Serial.print(topic);
+    Serial.print("] ");
     for (unsigned int i = 0; i < length; i++)
     {
         sub_payload[i] = (char)payload[i];
     }
     deserializeJson(SubDoc, sub_payload);
+    //Serial.println(payload);
     int temp = SubDoc["interval_time_inside_set"];
-    if ( temp != 0)
-    {
+    if (temp != 0)
         interval_time_inside_set = temp;
-    }
-    socket_cmd_set = SubDoc["socket_cmd_set"];
+    temp = SubDoc["socket_cmd_set"];
+    Serial.print("Raw"); Serial.println(temp);
+    // if(temp == socket_cmd_set_old)
+    //     socket_cmd_set = 0;
+    // else
+    // {
+    //     socket_cmd_set = temp;
+    //     if(temp != 0)
+    //         socket_cmd_set_old = socket_cmd_set;
+    // }
+    socket_cmd_set = temp;
+
 }
 void reconnect()
 {
@@ -175,6 +197,7 @@ void setup()
 {
     Serial.begin(115200);
     pinMode(ledPin, OUTPUT);
+    pinMode(buttonPin, INPUT);
     digitalWrite(ledPin, LOW);
     Auto_Connect_Wifi();
     client.setCallback(callback);
@@ -182,43 +205,77 @@ void setup()
 }
 void loop()
 {
-    // Kiểm tra kết nối
-    WiFi.mode(WIFI_STA);
-    if (!client.connected())
+    if(millis() - button_timer > interval_time_inside_set)
     {
-        reconnect();
+        button_cmd = digitalRead(buttonPin);
+        if (button_cmd == 1)
+        {
+            Serial.println("BUTTON PRESSED");
+            button_timer = millis();
+        }
+
+        if (button_cmd == 1)
+            socket_state = -socket_state;
+        else if (socket_cmd_set != 0)
+            socket_state = socket_cmd_set;
+        // Control socket
+        if (socket_state == 1)
+            digitalWrite(ledPin, HIGH);
+        if (socket_state == -1 || socket_state == 0)
+            digitalWrite(ledPin, LOW);
+
+        if (socket_state == socket_cmd_get_old)
+            socket_cmd_get = 0;
+        else
+        {
+            socket_cmd_get_old = socket_state;
+            socket_cmd_get = socket_state;
+        }
     }
-    client.loop();
-    if(Serial.available() > 0)
+    
+    if(millis() - publish_timer > interval_time_inside_set)
     {
-        if(Serial.read() == 't')
-            socket_cmd_set = 1;
-        if(Serial.read() == 'p')
-            socket_cmd_set = -1;
+        publish_timer = millis();
+        // Kiểm tra kết nối
+        WiFi.mode(WIFI_STA);
+        if (!client.connected())
+        {
+            reconnect();
+        }
+        client.loop();
+
+        if(socket_cmd_set == socket_state) socket_cmd_set = 0;
+
+        Serial.print("Receive: ");
+        Serial.print("interval_time_inside_set:");
+        Serial.print(interval_time_inside_set);
+        Serial.print(",socket_cmd_set:");
+        Serial.println(socket_cmd_set);
+        // Simulate temperature and humidity
+        temperature_inside += rand() % 3 - 1;
+        humidity_inside += rand() % 5 - 2;
+        if (socket_state == -1)
+            temperature_inside -= 4 * interval_time_inside_set / 1000;
+        if (temperature_inside > 60)
+            temperature_inside = 60;
+        if (temperature_inside < 10)
+            temperature_inside = 10;
+        if (humidity_inside > 100)
+            humidity_inside = 100;
+        if (humidity_inside < 0)
+            humidity_inside = 0;
+        // Creat message
+        PubDoc["temperature_inside"] = temperature_inside;
+        PubDoc["humidity_inside"] = humidity_inside;
+        PubDoc["socket_cmd_get"] = socket_cmd_get;
+        serializeJson(PubDoc, pub_payload);
+        // snprintf(pub_payload, 75, "{\"temperature_in\": %d, \"humidity_in\": %d}", temperature_inside, humidity_inside);
+        // Publish message
+        Serial.print("Publish: ");
+        Serial.println(pub_payload);
+        client.publish(mqtt_topic_pub, pub_payload);
     }
-    temperature_inside += rand() % 3 - 1;
-    humidity_inside = rand() % 5 - 2;
+    
 
-    if (socket_cmd_set == -1) temperature_inside -= 4*interval_time_inside_set/ 1000;
-    if (temperature_inside > 60) temperature_inside = 60;
-    if (temperature_inside < 10) temperature_inside = 10;
-
-    if (humidity_inside > 100) humidity_inside = 100;
-    if (humidity_inside < 0) humidity_inside = 0;
-
-    PubDoc["temperature_inside"] = temperature_inside;
-    PubDoc["humidity_inside"] = humidity_inside;
-    PubDoc["socket_cmd_get"] = socket_cmd_set;
-    serializeJson(PubDoc, pub_payload);
-    // snprintf(pub_payload, 75, "{\"temperature_in\": %d, \"humidity_in\": %d}", temperature_inside, humidity_inside);
-    Serial.print("Publish: ");
-    Serial.println(pub_payload);
-    client.publish(mqtt_topic_pub, pub_payload);
-    Serial.print("Receive: ");
-    Serial.print("interval_time_inside_set:"); Serial.print(interval_time_inside_set); Serial.print(",socket_cmd_set:"); Serial.println(socket_cmd_set);
-    if(socket_cmd_set == 1)
-        digitalWrite(ledPin, LOW);
-    if(socket_cmd_set == -1 || socket_cmd_set == 0)
-        digitalWrite(ledPin, HIGH);
-    delay(interval_time_inside_set);
+    // delay(interval_time_inside_set);
 }
