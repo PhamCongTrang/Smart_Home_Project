@@ -127,6 +127,7 @@ def on_message_local_subscribe_offline(client, userdata, msg):
     msg.payload = msg.payload.decode("utf-8")
 
     global temperature_inside, humidity_inside, temperature_outside, humidity_outside, socket_cmd, pump_cmd, interval_time_inside, interval_time_outside
+    global temperature_threshold_inside_set, temperature_threshold_outside_set
     global outside_cmd_payload
     inside_sub_doc = json.loads(msg.payload)
     temperature_inside = inside_sub_doc["temperature_inside"]
