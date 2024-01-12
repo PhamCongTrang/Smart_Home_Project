@@ -190,6 +190,9 @@ def on_message_external_subscribe(client, userdata, msg):
     # pump_cmd = thingsboard_sub_doc["pump_cmd"]
     # interval_time_inside = thingsboard_sub_doc["interval_time_inside"]
     # interval_time_outside = thingsboard_sub_doc["interval_time_outside"]
+
+    response_topic = "v1/devices/me/rpc/response/" + msg.topic.split("/")[-1]
+    client.publish(response_topic, "Response payload")
     
 
     local_pub_payload = f'{{"interval_time_inside_set": {interval_time_inside_set},"socket_cmd_set": {socket_cmd_set}}}'

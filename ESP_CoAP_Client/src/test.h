@@ -28,7 +28,7 @@ int pump_cmd_get_old = 0;
 int button_cmd = 0;
 
 int pump_state = -1;
-unsigned long button_timer, publish_timer;
+unsigned long button_timer, publish_timer, pump_timer;
 char pub_payload[70];
 int temperature_outside = 18, humidity_outside = 50;
 int ip1, ip2, ip3, ip4;

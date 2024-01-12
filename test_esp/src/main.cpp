@@ -25,5 +25,11 @@ void loop()
     digitalWrite(pin, LOW);
     delay(500); // Wait for 0.5 seconds (adjust as needed)
 
+<<<<<<< HEAD
   }
+=======
+// put function definitions here:
+int myFunction(int x, int y) {
+  return x;
+>>>>>>> 9222a216d7de21e04c27c9a8739d5a4573dd5140
 }
