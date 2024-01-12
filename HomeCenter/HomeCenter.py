@@ -37,10 +37,12 @@ temperature_inside = 0
 humidity_inside = 0
 temperature_outside = 0
 humidity_outside = 0
-socket_cmd = 0
-pump_cmd = 0
-interval_time_inside = 1000
-interval_time_outside = 1000
+socket_cmd_set = 0
+socket_cmd_get = 0
+pump_cmd_set = 0
+pump_cmd_get = 0
+interval_time_inside_set = 1000
+interval_time_outside_set = 1000
 zero_Doc = '{}'
 inside_sub_doc = json.loads(zero_Doc)
 outside_sub_doc = json.loads(zero_Doc)
@@ -65,7 +67,11 @@ def get_local_ip():
         return None
 local_ip = get_local_ip()
 print(f"LOCAL IP: {local_ip}")
-#####-----------------FORWARD--------------------------------------#
+########################################################################################
+###                                    FORWARD                                       ###
+###                                    PROGRAM                                       ###
+###                        DATA FROM DEVICE TO THINGSBOARD                           ###
+########################################################################################
 def on_connect_external_publish(client, userdata, flags, rc):
     if rc == 0:
         print("Connected to publish Thingsboard MQTT broker")
@@ -82,19 +88,38 @@ def on_connect_local_subscribe(client, userdata, flags, rc):
 def on_message_local_subscribe(client, userdata, msg):
     msg.payload = msg.payload.decode("utf-8")
 
-    global temperature_inside
-    global humidity_inside
+    # global temperature_inside
+    # global humidity_inside
+    global socket_cmd_get
+    global pump_cmd_get
     inside_sub_doc = json.loads(msg.payload)
     temperature_inside = inside_sub_doc["temperature_inside"]
     humidity_inside = inside_sub_doc["humidity_inside"]
-
+    # socket_cmd_get = inside_sub_doc["socket_cmd_get"]
+    socket_cmd_get = inside_sub_doc.get("socket_cmd_get",0)
     external_pub_payload = f'{{"temperature_inside":{temperature_inside},"humidity_inside":{humidity_inside},"temperature_outside":{temperature_outside},"humidity_outside":{humidity_outside}}}'
+    if socket_cmd_get != 0:
+        if socket_cmd_get == 1:
+            socket_cmd_get = random.randint(1, 1000)
+        if socket_cmd_get == -1:
+            socket_cmd_get = random.randint(-1000, -1)
+        response_payload = f'{{"socket_cmd_get":{socket_cmd_get}}}'
+    if pump_cmd_get != 0:
+        if pump_cmd_get == 1:
+            pump_cmd_get = random.randint(1, 1000)
+        if pump_cmd_get == -1:
+            pump_cmd_get = random.randint(-1000, -1)
+        response_payload = f'{{"pump_cmd_get":{pump_cmd_get}}}'
     if Internet_State == 1:
-        external_pub_client.publish(telemetry_pub_topic, external_pub_payload, qos = 1)
+        external_pub_client.publish(telemetry_pub_topic, external_pub_payload, qos = 2)
+        if socket_cmd_get != 0 or pump_cmd_get != 0:
+            external_sub_client.publish(response_topic, response_payload, qos = 1)
+            print(response_payload)
     print(external_pub_payload) #nguyen nhan khac cung lam timeline thingsboard khong ve do thi
-######################################################################################
-##                             CONTROL PROGRAM OFFLINE                              ##
-######################################################################################
+    
+##############################################################################
+##                     CONTROL PROGRAM OFFLINE                              ##
+##############################################################################
 def on_message_local_subscribe_offline(client, userdata, msg):
     msg.payload = msg.payload.decode("utf-8")
 
@@ -106,20 +131,25 @@ def on_message_local_subscribe_offline(client, userdata, msg):
 
     external_pub_payload = f'{{"temperature_inside":{temperature_inside},"humidity_inside":{humidity_inside},"temperature_outside":{temperature_outside},"humidity_outside":{humidity_outside}}}'
     print(external_pub_payload) #nguyen nhan khac cung lam timeline thingsboard khong ve do thi
-    if temperature_outside > 20:
-        pump_cmd = 1
-    else:
-        pump_cmd = 1
-    if humidity_inside > 55:
-        socket_cmd = 1
-    else:
-        socket_cmd = 0
-    local_pub_payload = f'{{"interval_time_inside":1000,"socket_cmd":{socket_cmd},"interval_time_inside":1000}}'
-    outside_cmd_payload = bytes(f'{{"interval_time_outside": 1000,"pump_cmd": {pump_cmd}}}','utf-8')#problem here // COAP message 
+    if temperature_outside > 200:
+        pump_cmd_set = 1
+    else: pump_cmd_set = -1
+    if temperature_inside > 210:
+        socket_cmd_set = -1
+    else: socket_cmd_set = 1
+
+    local_pub_payload = f'{{"interval_time_inside_set":1000,"socket_cmd_set":{socket_cmd_set}}}'
+    outside_cmd_payload = bytes(f'{{"interval_time_outside_set":1000,"pump_cmd_set": {pump_cmd_set}}}','utf-8')#problem here // COAP message 
 
     print(local_pub_payload)
+    print(outside_cmd_payload)
     local_pub_client.publish(local_pub_topic, local_pub_payload, qos=1)
-#####-----------------REVERSE--------------------------------------#
+
+########################################################################################
+###                                    REVERSE                                       ###
+###                                    PROGRAM                                       ###
+###                        DATA FROM THINGSBOARD TO DEVICE                           ###
+########################################################################################
 def on_connect_local_publish(client, userdata, flags, rc):
 
     if rc == 0:
@@ -130,7 +160,7 @@ def on_connect_local_publish(client, userdata, flags, rc):
 
 def on_connect_external_subscribe(client, userdata, flags, rc):
     if rc == 0:
-        print("Connected to subscribe MAQIATTO MQTT broker")
+        print("Connected to subscribe Thingsboard MQTT broker")
         client.subscribe(telemetry_sub_topic) # client.sub
     else:
         print(f"Connection failed with error code {rc}")
@@ -139,42 +169,56 @@ def on_message_external_subscribe(client, userdata, msg):
     # msg.payload = msg.payload.decode("utf-8")
     print(f"Received message on topic {msg.topic}: {msg.payload}")
 
-    global socket_cmd, pump_cmd, interval_time_inside, interval_time_outside
+    global socket_cmd_set, pump_cmd_set, interval_time_inside_set, interval_time_outside_set
+    
     global outside_cmd_payload
     thingsboard_sub_doc = json.loads(msg.payload)
-
-    if thingsboard_sub_doc["method"] == "socket_cmd":
-        socket_cmd = thingsboard_sub_doc["params"]
-    if thingsboard_sub_doc["method"] == "pump_cmd":
-        pump_cmd = thingsboard_sub_doc["params"]
-    if thingsboard_sub_doc["method"] == "interval_time_inside":
-        interval_time_inside = int(thingsboard_sub_doc["params"])
-    if thingsboard_sub_doc["method"] == "interval_time_outside":
-        interval_time_outside = int(thingsboard_sub_doc["params"])
+    if thingsboard_sub_doc["params"] is not None:
+        if thingsboard_sub_doc["method"] == "socket_cmd_set":
+            socket_cmd_set = thingsboard_sub_doc["params"]
+        else:
+            socket_cmd_set = 0
+        if thingsboard_sub_doc["method"] == "pump_cmd_set":
+            pump_cmd_set = thingsboard_sub_doc["params"]
+        else:
+            pump_cmd_set = 0
+        if thingsboard_sub_doc["method"] == "interval_time_inside_set":
+            interval_time_inside_set = int(thingsboard_sub_doc["params"])
+        if thingsboard_sub_doc["method"] == "interval_time_outside_set":
+            interval_time_outside_set = int(thingsboard_sub_doc["params"])
     # socket_cmd = thingsboard_sub_doc["socket_cmd"]
     # pump_cmd = thingsboard_sub_doc["pump_cmd"]
     # interval_time_inside = thingsboard_sub_doc["interval_time_inside"]
     # interval_time_outside = thingsboard_sub_doc["interval_time_outside"]
+    
 
-    local_pub_payload = f'{{"interval_time_inside": {interval_time_inside},"socket_cmd": {socket_cmd}}}'
-    outside_cmd_payload = bytes(f'{{"interval_time_outside": {interval_time_outside},"pump_cmd": {pump_cmd}}}','utf-8')#problem here // COAP message 
+    local_pub_payload = f'{{"interval_time_inside_set": {interval_time_inside_set},"socket_cmd_set": {socket_cmd_set}}}'
+    outside_cmd_payload = bytes(f'{{"interval_time_outside_set": {interval_time_outside_set},"pump_cmd_set": {pump_cmd_set}}}','utf-8')#problem here // COAP message 
     # outside_cmd_payload = msg.payload
+    
     print(local_pub_payload)
+    print(outside_cmd_payload)
+    
     local_pub_client.publish(local_pub_topic, local_pub_payload, qos=1)
 
 def on_disconnect(client, userdata, rc):
     print(f"Disconnected from MQTT broker")
     temp = 1
-##--------------------INTERNET CHECK CONNECTION-------------------------------##
+
+########################################################################################
+###                              CHECK INTERNET CONECTION                            ###
+###                                        AND                                       ###
+###                               INIT MQTT CONECTION                                ###
+########################################################################################
 if Internet_State == 1:
-    ##--------------------EXTERNAL CLIENT-----------------------------------------##
-    ###############################################################################
+    ##--------------------CONNECT TO EXTERNAL CLIENT------------------------------##
     # 1. FORWARD
+    # a. Publish to sensors
     # Thingboard MQTT broker details
-    external_pub_broker_address = "mqtt.thingsboard.cloud"
-    external_pub_username = "iot_g17"
+    external_pub_broker_address = "thingsboard.hust-2slab.org"
+    external_pub_username = "iot_g17_1"
     external_pub_password = "12345678"
-    external_pub_client_id = "70k9jt9qh34w5njkdq4d"
+    external_pub_client_id = "homecenter"
     # MQTT topic for publishing telemetry data
     telemetry_pub_topic = "v1/devices/me/sensor"
     # Create MQTT client
@@ -184,18 +228,26 @@ if Internet_State == 1:
     external_pub_client.on_disconnect = on_disconnect
     external_pub_client.connect(external_pub_broker_address, 1883, 60)
     external_pub_client.loop_start()
+
+    # b. Publish to response cmd
+    # response_broker_address = "thingsboard.hust-2slab.org"t
+    # response_username = "iot_g17_2"
+    # response_password = "12345678"
+    # response_client_id = "command"
+    response_topic = "v1/devices/me/cmd"
+    # response_client = mqtt.Client(response_client_id)
+    # response_client.username_pw_set(response_username, response_password)
+    # response_client.on_connect = on_connect_external_publish
+    # response_client.on_disconnect = on_disconnect
+    # response_client.connect(response_broker_address, 1883, 60)
+    # response_client.loop_start()
+
     # 2. REVERSE
     # Thingboard MQTT broker details
-    # external_sub_broker_address = "maqiatto.com"
-    # external_sub_username = "phamcongtranghd@gmail.com" # fix 3 dong nay, cho Hoang cung cap user, password, id
-    # external_sub_password = "externalbroker"
-    # external_sub_client_id = "mqttx_20002"
-    # # MQTT topic for publishing telemetry data
-    # telemetry_sub_topic = "phamcongtranghd@gmail.com/cmd" # de y topic
-    external_sub_broker_address = "mqtt.thingsboard.cloud"
+    external_sub_broker_address = "thingsboard.hust-2slab.org"
     external_sub_username = "iot_g17_2" # fix 3 dong nay, cho Hoang cung cap user, password, id
     external_sub_password = "12345678"
-    external_sub_client_id = "button"
+    external_sub_client_id = "command"
     # MQTT topic for publishing telemetry data
     telemetry_sub_topic = "v1/devices/me/rpc/request/+" # de y topic
     # Create MQTT client
@@ -206,8 +258,8 @@ if Internet_State == 1:
     external_sub_client.on_message = on_message_external_subscribe
     external_sub_client.connect(external_sub_broker_address, 1883, 60)
     external_sub_client.loop_start()
-    ##------------------LOCAL CLIENT----------------------------------------------##
-    ################################################################################
+
+    ##------------------CONNECT TO LOCAL CLIENT------------------------------------##
     # 1. FORWARD
     local_broker_address = local_ip
     # non user
@@ -233,8 +285,7 @@ if Internet_State == 1:
     local_pub_client.connect(local_broker_address, 1883, 60)
     local_pub_client.loop_start()
 if Internet_State == -1:
-    ##------------------LOCAL CLIENT----------------------------------------------##
-    ################################################################################
+    ##------------------ONLY CONNECT TO LOCAL CLIENT-----------------------------##
     # 1. FORWARD
     local_broker_address = local_ip
     # non user
@@ -259,8 +310,12 @@ if Internet_State == -1:
     # publish don't need on_message
     local_pub_client.connect(local_broker_address, 1883, 60)
     local_pub_client.loop_start()
-###############################################################################
-# COAP
+
+########################################################################################
+###                                      COAP PROTOCOL                               ###
+###                                                                                  ###
+###                                                                                  ###
+########################################################################################
 class server_put(resource.Resource):
     def __init__(self):
         super().__init__()
@@ -275,16 +330,19 @@ class server_put(resource.Resource):
 
     async def render_put(self, request):
         coap_payload = request.payload.decode('utf-8')
-        # print('PUT payload CoAP: %s' % coap_payload) // bat dong nay se lam thingsboard khong ve duoc do thi
+        # print('PUT payload CoAP: %s' % coap_payload) #bat dong nay se lam thingsboard khong ve duoc do thi
         global temperature_outside
         global humidity_outside
-        inside_sub_doc = json.loads(coap_payload)
-        temperature_outside = inside_sub_doc["temperature_outside"]
-        humidity_outside = inside_sub_doc["humidity_outside"]
+        global pump_cmd_get
+        outside_sub_doc = json.loads(coap_payload)
+        temperature_outside = outside_sub_doc["temperature_outside"]
+        humidity_outside = outside_sub_doc["humidity_outside"]
+        pump_cmd_get = outside_sub_doc["pump_cmd_get"] 
         # humidity_inside = coap_payload
         # self.set_content(request.payload)
         # return aiocoap.Message(code=aiocoap.CHANGED, payload = outside_cmd_payload)
         self.set_content(outside_cmd_payload)
+        # print(outside_cmd_payload)
         return aiocoap.Message(code=aiocoap.CHANGED, payload = outside_cmd_payload) #not put function convert string to bytes here
 class server_get(resource.Resource):
 
