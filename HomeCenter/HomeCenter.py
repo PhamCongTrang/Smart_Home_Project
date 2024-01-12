@@ -43,6 +43,9 @@ pump_cmd_set = 0
 pump_cmd_get = 0
 interval_time_inside_set = 1000
 interval_time_outside_set = 1000
+temperature_threshold_inside_set = 0
+temperature_threshold_outside_set = 0
+
 zero_Doc = '{}'
 inside_sub_doc = json.loads(zero_Doc)
 outside_sub_doc = json.loads(zero_Doc)
@@ -169,7 +172,9 @@ def on_message_external_subscribe(client, userdata, msg):
     # msg.payload = msg.payload.decode("utf-8")
     print(f"Received message on topic {msg.topic}: {msg.payload}")
 
-    global socket_cmd_set, pump_cmd_set, interval_time_inside_set, interval_time_outside_set
+    global socket_cmd_set, pump_cmd_set
+    global interval_time_inside_set, interval_time_outside_set
+    global temperature_threshold_inside_set, temperature_threshold_outside_set
     
     global outside_cmd_payload
     thingsboard_sub_doc = json.loads(msg.payload)
@@ -186,6 +191,10 @@ def on_message_external_subscribe(client, userdata, msg):
             interval_time_inside_set = int(thingsboard_sub_doc["params"])
         if thingsboard_sub_doc["method"] == "interval_time_outside_set":
             interval_time_outside_set = int(thingsboard_sub_doc["params"])
+        if thingsboard_sub_doc["method"] == "temperature_threshold_inside_set":
+            itemperature_threshold_inside_set = int(thingsboard_sub_doc["params"])
+        if thingsboard_sub_doc["method"] == "temperature_threshold_outside_set":
+            temperature_threshold_outside_set = int(thingsboard_sub_doc["params"])
     # socket_cmd = thingsboard_sub_doc["socket_cmd"]
     # pump_cmd = thingsboard_sub_doc["pump_cmd"]
     # interval_time_inside = thingsboard_sub_doc["interval_time_inside"]
