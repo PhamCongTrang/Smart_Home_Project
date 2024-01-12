@@ -135,12 +135,18 @@ def on_message_local_subscribe_offline(client, userdata, msg):
 
     external_pub_payload = f'{{"temperature_inside":{temperature_inside},"humidity_inside":{humidity_inside},"temperature_outside":{temperature_outside},"humidity_outside":{humidity_outside}}}'
     print(external_pub_payload) #nguyen nhan khac cung lam timeline thingsboard khong ve do thi
-    if temperature_outside > 200:
+    
+    
+    if temperature_outside > temperature_threshold_outside_set:
         pump_cmd_set = 1
-    else: pump_cmd_set = -1
-    if temperature_inside > 210:
+    elif temperature_outside < temperature_threshold_outside_set - 5:
+        pump_cmd_set = -1
+
+    if temperature_inside > temperature_threshold_inside_set:
         socket_cmd_set = -1
-    else: socket_cmd_set = 1
+    elif temperature_inside < temperature_threshold_inside_set - 5:
+        socket_cmd_set = 1
+
 
     local_pub_payload = f'{{"interval_time_inside_set":1000,"socket_cmd_set":{socket_cmd_set}}}'
     outside_cmd_payload = bytes(f'{{"interval_time_outside_set":1000,"pump_cmd_set": {pump_cmd_set}}}','utf-8')#problem here // COAP message 
