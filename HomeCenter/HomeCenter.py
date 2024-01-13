@@ -97,12 +97,10 @@ def on_message_local_subscribe(client, userdata, msg):
 
     # global temperature_inside
     # global humidity_inside
-    global socket_cmd_get
-    global pump_cmd_get
+    global socket_cmd_get, pump_cmd_get
     inside_sub_doc = json.loads(msg.payload)
     temperature_inside = inside_sub_doc["temperature_inside"]
     humidity_inside = inside_sub_doc["humidity_inside"]
-    # socket_cmd_get = inside_sub_doc["socket_cmd_get"]
     socket_cmd_get = inside_sub_doc.get("socket_cmd_get",0)
     external_pub_payload = f'{{"temperature_inside":{temperature_inside},"humidity_inside":{humidity_inside},"temperature_outside":{temperature_outside},"humidity_outside":{humidity_outside}}}'
     if socket_cmd_get != 0:
@@ -123,7 +121,7 @@ def on_message_local_subscribe(client, userdata, msg):
         if socket_cmd_get != 0 or pump_cmd_get != 0:
             external_sub_client.publish(response_topic, response_payload, qos = 1)
             print(response_payload)
-    print(external_pub_payload) #nguyen nhan khac cung lam timeline thingsboard khong ve do thi
+    print(external_pub_payload)
 ##############################################################################
 ##                     CONTROL PROGRAM OFFLINE                              ##
 ##############################################################################
@@ -139,22 +137,41 @@ def on_message_local_subscribe_offline(client, userdata, msg):
     socket_cmd_get = inside_sub_doc.get("socket_cmd_get",0)
     
     external_pub_payload = f'{{"temperature_inside":{temperature_inside},"humidity_inside":{humidity_inside},"temperature_outside":{temperature_outside},"humidity_outside":{humidity_outside}}}'
-    print(external_pub_payload) #nguyen nhan khac cung lam timeline thingsboard khong ve do thi
-    
+    print(external_pub_payload) 
+    plotter_pub_payload = f'{{"temperature_inside":{temperature_inside},"humidity_inside":{humidity_inside},"temperature_outside":{temperature_outside},"humidity_outside":{humidity_outside},"temperature_threshold_inside_set":{temperature_threshold_inside_set}, "temperature_threshold_outside_set":{temperature_threshold_outside_set}}}'
+  
+    if socket_cmd_get != 0:
+        if socket_cmd_get == 1:
+            socket_cmd_get = random.randint(1, 1000)
+        if socket_cmd_get == -1:
+            socket_cmd_get = random.randint(-1000, -1)
+        response_payload = f'{{"socket_cmd_get":{socket_cmd_get}}}'
+    if pump_cmd_get != 0:
+        if pump_cmd_get == 1:
+            pump_cmd_get = random.randint(1, 1000)
+        if pump_cmd_get == -1:
+            pump_cmd_get = random.randint(-1000, -1)
+        response_payload = f'{{"pump_cmd_get":{pump_cmd_get}}}'
+
+    if Internet_State == 1:
+        external_pub_client.publish(telemetry_pub_topic, external_pub_payload, qos = 2)
+        if socket_cmd_get != 0 or pump_cmd_get != 0:
+            external_sub_client.publish(response_topic, response_payload, qos = 1)
+            print(response_payload)
+
     if temperature_outside > temperature_threshold_outside_set:
         if(pump_cmd_set != 1):
             active_outside = time.time()
         pump_cmd_set = 1
         
-    if(time.time() - active_outside > 5):
+    if(time.time() - active_outside > 8):
         pump_cmd_set = -1
-    if(time.time() - active_outside > 7):
+    if(time.time() - active_outside > 10):
         pump_cmd_set = 0
-    
     # else
     #     pump_cmd_set = 0
 
-    if temperature_inside > temperature_threshold_inside_set:
+    if temperature_inside > temperature_threshold_inside_set - 8: 
         socket_cmd_set = -1
         active_inside = 0
     elif temperature_inside < temperature_threshold_inside_set - 15 and active_inside == 0:
@@ -169,10 +186,8 @@ def on_message_local_subscribe_offline(client, userdata, msg):
     print(outside_cmd_payload)
 
     local_pub_client.publish(local_pub_topic, local_pub_payload, qos=1)
-    local_pub_client.publish("local/plotter", external_pub_payload, qos=1)
+    local_pub_client.publish("local/plotter", plotter_pub_payload, qos=1)
     
-
-
 ########################################################################################
 ###                                    REVERSE                                       ###
 ###                                    PROGRAM                                       ###
@@ -227,7 +242,6 @@ def on_message_external_subscribe(client, userdata, msg):
 
     response_topic = "v1/devices/me/rpc/response/" + msg.topic.split("/")[-1]
     client.publish(response_topic, "Response payload")
-    
 
     local_pub_payload = f'{{"interval_time_inside_set": {interval_time_inside_set},"socket_cmd_set": {socket_cmd_set}}}'
     outside_cmd_payload = bytes(f'{{"interval_time_outside_set": {interval_time_outside_set},"pump_cmd_set": {pump_cmd_set}}}','utf-8')#problem here // COAP message 
@@ -237,7 +251,6 @@ def on_message_external_subscribe(client, userdata, msg):
     print(outside_cmd_payload)
     
     local_pub_client.publish(local_pub_topic, local_pub_payload, qos=1)
-
 
 def on_disconnect(client, userdata, rc):
     print(f"Disconnected from MQTT broker")
@@ -249,9 +262,8 @@ def on_disconnect(client, userdata, rc):
 ###                               INIT MQTT CONECTION                                ###
 ########################################################################################
 if Internet_State == 1:
-    ##--------------------CONNECT TO EXTERNAL CLIENT------------------------------##
-    # 1. FORWARD
-    # a. Publish to sensors
+##--------------------CONNECT TO EXTERNAL CLIENT------------------------------##
+    # 1. Publish environment data
     # Thingboard MQTT broker details
     external_pub_broker_address = "thingsboard.hust-2slab.org"
     external_pub_username = "iot_g17_1"
@@ -267,27 +279,15 @@ if Internet_State == 1:
     external_pub_client.connect(external_pub_broker_address, 1883, 60)
     external_pub_client.loop_start()
 
-    # b. Publish to response cmd
-    # response_broker_address = "thingsboard.hust-2slab.org"t
-    # response_username = "iot_g17_2"
-    # response_password = "12345678"
-    # response_client_id = "command"
-    response_topic = "v1/devices/me/cmd"
-    # response_client = mqtt.Client(response_client_id)
-    # response_client.username_pw_set(response_username, response_password)
-    # response_client.on_connect = on_connect_external_publish
-    # response_client.on_disconnect = on_disconnect
-    # response_client.connect(response_broker_address, 1883, 60)
-    # response_client.loop_start()
-
-    # 2. REVERSE
+    # 2. Subscribe command and response
     # Thingboard MQTT broker details
     external_sub_broker_address = "thingsboard.hust-2slab.org"
     external_sub_username = "iot_g17_2" # fix 3 dong nay, cho Hoang cung cap user, password, id
     external_sub_password = "12345678"
     external_sub_client_id = "command"
     # MQTT topic for publishing telemetry data
-    telemetry_sub_topic = "v1/devices/me/rpc/request/+" # de y topic
+    telemetry_sub_topic = "v1/devices/me/rpc/request/+"
+    response_topic = "v1/devices/me/cmd"
     # Create MQTT client
     external_sub_client = mqtt.Client(external_sub_client_id)
     external_sub_client.username_pw_set(external_sub_username, external_sub_password)
@@ -297,62 +297,34 @@ if Internet_State == 1:
     external_sub_client.connect(external_sub_broker_address, 1883, 60)
     external_sub_client.loop_start()
 
-    ##------------------CONNECT TO LOCAL CLIENT------------------------------------##
-    # 1. FORWARD
-    local_broker_address = local_ip
-    # non user
-    # non password
-    # non id
-    local_sub_topic = "local/topic1"
-    local_sub_client = mqtt.Client("local1")
-    local_sub_client.on_connect = on_connect_local_subscribe
-    local_sub_client.on_disconnect = on_disconnect
-    local_sub_client.on_message = on_message_local_subscribe
-    local_sub_client.connect(local_broker_address, 1883, 60)
-    local_sub_client.loop_start()
-    # 2. REVERSE
-    local_broker_address = local_ip
-    # non user
-    # non password
-    # non id
-    local_pub_topic = "local/topic2"
-    local_pub_client = mqtt.Client("local2")
-    local_pub_client.on_connect = on_connect_local_publish
-    local_pub_client.on_disconnect = on_disconnect
-    # publish don't need on_message
-    local_pub_client.connect(local_broker_address, 1883, 60)
-    local_pub_client.loop_start()
-if  Internet_State == -1 :
-    ##------------------ONLY CONNECT TO LOCAL CLIENT-----------------------------##
-    # 1. FORWARD
-    local_broker_address = local_ip
-    # non user
-    # non password
-    # non id
-    local_sub_topic = "local/topic1"
-    local_sub_client = mqtt.Client("local1")
-    local_sub_client.on_connect = on_connect_local_subscribe
-    local_sub_client.on_disconnect = on_disconnect
-    local_sub_client.on_message = on_message_local_subscribe_offline
-    local_sub_client.connect(local_broker_address, 1883, 60)
-    local_sub_client.loop_start()
-    # 2. REVERSE
-    local_broker_address = local_ip
-    # non user
-    # non password
-    # non id
-    local_pub_topic = "local/topic2"
-    local_pub_client = mqtt.Client("local2")
-    local_pub_client.on_connect = on_connect_local_publish
-    local_pub_client.on_disconnect = on_disconnect
-    # publish don't need on_message
-    local_pub_client.connect(local_broker_address, 1883, 60)
-    local_pub_client.loop_start()
-
+##------------------CONNECT TO LOCAL CLIENT------------------------------------##
+local_broker_address = local_ip
+# non user
+# non password
+# non id
+local_sub_topic = "local/topic1"
+local_sub_client = mqtt.Client("local1")
+local_sub_client.on_connect = on_connect_local_subscribe
+local_sub_client.on_disconnect = on_disconnect
+local_sub_client.on_message = on_message_local_subscribe_offline
+local_sub_client.connect(local_broker_address, 1883, 60)
+local_sub_client.loop_start()
+# 2. REVERSE
+local_broker_address = local_ip
+# non user
+# non password
+# non id
+local_pub_topic = "local/topic2"
+local_pub_client = mqtt.Client("local2")
+local_pub_client.on_connect = on_connect_local_publish
+local_pub_client.on_disconnect = on_disconnect
+# publish don't need on_message
+local_pub_client.connect(local_broker_address, 1883, 60)
+local_pub_client.loop_start()
 
 ########################################################################################
-###                                      COAP PROTOCOL                               ###
 ###                                                                                  ###
+###                                      COAP PROTOCOL                               ###
 ###                                                                                  ###
 ########################################################################################
 class server_put(resource.Resource):
@@ -368,10 +340,9 @@ class server_put(resource.Resource):
             self.content = self.content + b"0123456789\n"
 
     async def render_put(self, request):
-        # print("Hoang")
+
 
         coap_payload = request.payload.decode('utf-8')
-        # print('PUT payload CoAP: %s' % coap_payload) #bat dong nay se lam thingsboard khong ve duoc do thi
         global temperature_outside
         global humidity_outside
         global pump_cmd_get
@@ -379,11 +350,9 @@ class server_put(resource.Resource):
         temperature_outside = outside_sub_doc["temperature_outside"]
         humidity_outside = outside_sub_doc["humidity_outside"]
         pump_cmd_get = outside_sub_doc["pump_cmd_get"] 
-        # humidity_inside = coap_payload
-        # self.set_content(request.payload)
-        # return aiocoap.Message(code=aiocoap.CHANGED, payload = outside_cmd_payload)
         self.set_content(outside_cmd_payload)
         # print(outside_cmd_payload)
+
         return aiocoap.Message(code=aiocoap.CHANGED, payload = outside_cmd_payload) #not put function convert string to bytes here
 class server_get(resource.Resource):
 
@@ -393,7 +362,8 @@ logging.getLogger().addHandler(logging.NullHandler())
 
 async def main():
     # Resource tree creation
-    print("Hoang")
+    global Internet_State
+    # Internet_State = check_internet_connection()
     root = resource.Site()
     root.add_resource(['put'], server_put())
     root.add_resource(['get'], server_get())
@@ -402,17 +372,9 @@ async def main():
     await asyncio.Event().wait()
 
 if __name__ == "__main__":
-    print("Hoang")
     asyncio.run(main())
     try:
         while True:
-            # Format the string with the random temperature
-            # payload = f'{{"humidity_in": {random_humidity_inside},"temperature_in": {random_temperature_inside}, "humidity_out": {random_humidity_outside},"temperature_out": {random_temperature_outside}}}'
-            # external_pub_payload = f'{{"humidity_in": {humidity_inside},"temperature_in": {temperature_inside}}}'
-            # print(external_pub_payload)
-            # # Publish telemetry data to Thingboard
-            # external_pub_client.publish(telemetry_topic, external_pub_payload, qos=1)
-            # print("Hoang")
             Internet_State = check_internet_connection()
             # Sleep for some time before publishing the next data (e.g., every 5 seconds)
             time.sleep(1)
