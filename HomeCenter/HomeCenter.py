@@ -26,12 +26,13 @@ def check_internet_connection():
         return False
 
 # Check internet connection
-if check_internet_connection():
-    print("Internet connection is available.")
-    Internet_State = 1
-else:
-    print("No internet connection.")
-    Internet_State = -1
+# if check_internet_connection():
+#     print("Internet connection is available.")
+#     Internet_State = 1
+# else:
+#     print("No internet connection.")
+#     Internet_State = -1
+Internet_State = -1
 # Khai bao cac bien Global, la cac message
 temperature_inside = 0
 humidity_inside = 0
@@ -43,8 +44,8 @@ pump_cmd_set = 0
 pump_cmd_get = 0
 interval_time_inside_set = 1000
 interval_time_outside_set = 1000
-temperature_threshold_inside_set = 0
-temperature_threshold_outside_set = 0
+temperature_threshold_inside_set = 30
+temperature_threshold_outside_set = 20
 
 zero_Doc = '{}'
 inside_sub_doc = json.loads(zero_Doc)
@@ -113,29 +114,28 @@ def on_message_local_subscribe(client, userdata, msg):
         if pump_cmd_get == -1:
             pump_cmd_get = random.randint(-1000, -1)
         response_payload = f'{{"pump_cmd_get":{pump_cmd_get}}}'
+
     if Internet_State == 1:
         external_pub_client.publish(telemetry_pub_topic, external_pub_payload, qos = 2)
         if socket_cmd_get != 0 or pump_cmd_get != 0:
             external_sub_client.publish(response_topic, response_payload, qos = 1)
             print(response_payload)
     print(external_pub_payload) #nguyen nhan khac cung lam timeline thingsboard khong ve do thi
-    
 ##############################################################################
 ##                     CONTROL PROGRAM OFFLINE                              ##
 ##############################################################################
 def on_message_local_subscribe_offline(client, userdata, msg):
     msg.payload = msg.payload.decode("utf-8")
 
-    global temperature_inside, humidity_inside, temperature_outside, humidity_outside, socket_cmd, pump_cmd, interval_time_inside, interval_time_outside
+    global temperature_inside, humidity_inside, temperature_outside, humidity_outside
     global temperature_threshold_inside_set, temperature_threshold_outside_set
-    global outside_cmd_payload
+    global outside_cmd_payload, pump_cmd_set, socket_cmd_set
     inside_sub_doc = json.loads(msg.payload)
     temperature_inside = inside_sub_doc["temperature_inside"]
     humidity_inside = inside_sub_doc["humidity_inside"]
 
     external_pub_payload = f'{{"temperature_inside":{temperature_inside},"humidity_inside":{humidity_inside},"temperature_outside":{temperature_outside},"humidity_outside":{humidity_outside}}}'
     print(external_pub_payload) #nguyen nhan khac cung lam timeline thingsboard khong ve do thi
-    
     
     if temperature_outside > temperature_threshold_outside_set:
         pump_cmd_set = 1
@@ -146,7 +146,6 @@ def on_message_local_subscribe_offline(client, userdata, msg):
         socket_cmd_set = -1
     elif temperature_inside < temperature_threshold_inside_set - 5:
         socket_cmd_set = 1
-
 
     local_pub_payload = f'{{"interval_time_inside_set":1000,"socket_cmd_set":{socket_cmd_set}}}'
     outside_cmd_payload = bytes(f'{{"interval_time_outside_set":1000,"pump_cmd_set": {pump_cmd_set}}}','utf-8')#problem here // COAP message 
@@ -303,7 +302,7 @@ if Internet_State == 1:
     # publish don't need on_message
     local_pub_client.connect(local_broker_address, 1883, 60)
     local_pub_client.loop_start()
-if Internet_State == -1:
+if  Internet_State == -1 :
     ##------------------ONLY CONNECT TO LOCAL CLIENT-----------------------------##
     # 1. FORWARD
     local_broker_address = local_ip
@@ -330,6 +329,7 @@ if Internet_State == -1:
     local_pub_client.connect(local_broker_address, 1883, 60)
     local_pub_client.loop_start()
 
+
 ########################################################################################
 ###                                      COAP PROTOCOL                               ###
 ###                                                                                  ###
@@ -348,6 +348,7 @@ class server_put(resource.Resource):
             self.content = self.content + b"0123456789\n"
 
     async def render_put(self, request):
+        # print("Hoang")
         coap_payload = request.payload.decode('utf-8')
         # print('PUT payload CoAP: %s' % coap_payload) #bat dong nay se lam thingsboard khong ve duoc do thi
         global temperature_outside
@@ -371,6 +372,7 @@ logging.getLogger().addHandler(logging.NullHandler())
 
 async def main():
     # Resource tree creation
+    # print("Hoang")
     root = resource.Site()
     root.add_resource(['put'], server_put())
     root.add_resource(['get'], server_get())
@@ -379,6 +381,7 @@ async def main():
     await asyncio.Event().wait()
 
 if __name__ == "__main__":
+    print("Hoang")
     asyncio.run(main())
     try:
         while True:
@@ -388,7 +391,9 @@ if __name__ == "__main__":
             # print(external_pub_payload)
             # # Publish telemetry data to Thingboard
             # external_pub_client.publish(telemetry_topic, external_pub_payload, qos=1)
-
+            # print("Hoang")
+            Internet_State = check_internet_connection()
+            
             # Sleep for some time before publishing the next data (e.g., every 5 seconds)
             time.sleep(1)
 
