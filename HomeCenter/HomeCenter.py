@@ -33,7 +33,7 @@ def check_internet_connection():
 # else:
 #     print("No internet connection.")
 #     Internet_State = -1
-Internet_State = -1
+Internet_State = 1
 # Khai bao cac bien Global, la cac message
 temperature_inside = 0
 humidity_inside = 0
@@ -164,17 +164,17 @@ def on_message_local_subscribe_offline(client, userdata, msg):
             active_outside = time.time()
         pump_cmd_set = 1
         
-    if(time.time() - active_outside > 8):
+    if(time.time() - active_outside > 4):
         pump_cmd_set = -1
-    if(time.time() - active_outside > 10):
+    if(time.time() - active_outside > 6):
         pump_cmd_set = 0
     # else
     #     pump_cmd_set = 0
 
-    if temperature_inside > temperature_threshold_inside_set - 8: 
+    if temperature_inside > temperature_threshold_inside_set: 
         socket_cmd_set = -1
         active_inside = 0
-    elif temperature_inside < temperature_threshold_inside_set - 15 and active_inside == 0:
+    elif temperature_inside < temperature_threshold_inside_set - 17 and active_inside == 0:
         socket_cmd_set = 1
         active_inside = 1
     else: socket_cmd_set = 0
