@@ -252,10 +252,10 @@ void loop()
         Serial.print(",socket_cmd_set:");
         Serial.println(socket_cmd_set);
         // Simulate temperature and humidity
-        temperature_inside += rand() % 3 - 1;
+        temperature_inside += rand() % 2;
         humidity_inside += rand() % 5 - 2;
         if (socket_state == -1)
-            temperature_inside -= 4 * interval_time_inside_set / 1000;
+            temperature_inside -= 2 * interval_time_inside_set / 1000;
         if (temperature_inside > 60)
             temperature_inside = 60;
         if (temperature_inside < 10)
