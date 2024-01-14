@@ -231,7 +231,7 @@ void loop()
 
         temperature_outside += rand() % 4 - 1;
         if (pump_state == 1)
-            temperature_outside -= 4 * interval_time_outside_set / 1000;
+            temperature_outside -= 3 * interval_time_outside_set / 1000;
         if (temperature_outside > 50)
             temperature_outside = 50;
         if (temperature_outside < 5)
