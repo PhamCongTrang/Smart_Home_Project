@@ -13,7 +13,7 @@
 #define mqtt_server_2 "192.168.0.104"
 
 #define ssid_3 "Hust_TVTQB_Dien-Dien-tu"
-#define mqtt_server_3 "192.168.66.214"
+#define mqtt_server_3 "192.168.66.239"
 
 #define mqtt_topic_pub "local/topic1"
 #define mqtt_topic_sub "local/topic2"
@@ -116,12 +116,12 @@ int Auto_Connect_Wifi()
     int try_wifi = 0;
     while (1 == 1)
     {
-        try_wifi = wifi_1();
-        if (try_wifi != 0)
-            break;
-        try_wifi = wifi_2();
-        if (try_wifi != 0)
-            break;
+        // try_wifi = wifi_1();
+        // if (try_wifi != 0)
+        //     break;
+        // try_wifi = wifi_2();
+        // if (try_wifi != 0)
+        //     break;
         try_wifi = wifi_3();
         if (try_wifi != 0)
             break;
@@ -143,21 +143,22 @@ int Auto_Connect_Wifi()
 // Hàm call back để nhận dữ liệu
 void callback(char *topic, byte *payload, unsigned int length)
 {
-    char sub_payload[70];
-    Serial.print("Message arrived [");
-    Serial.print(topic);
-    Serial.print("] ");
+    char sub_payload[80];
+    // Serial.print("Message arrived [");
+    // Serial.print(topic);
+    // Serial.print("] ");
     for (unsigned int i = 0; i < length; i++)
     {
         sub_payload[i] = (char)payload[i];
     }
     deserializeJson(SubDoc, sub_payload);
-    //Serial.println(payload);
+    Serial.print("Message arrived :");
+    Serial.println(sub_payload);
     int temp = SubDoc["interval_time_inside_set"];
     if (temp != 0)
         interval_time_inside_set = temp;
     temp = SubDoc["socket_cmd_set"];
-    Serial.print("Raw"); Serial.println(temp);
+    // Serial.print("Raw"); Serial.println(temp);
     // if(temp == socket_cmd_set_old)
     //     socket_cmd_set = 0;
     // else
@@ -167,7 +168,6 @@ void callback(char *topic, byte *payload, unsigned int length)
     //         socket_cmd_set_old = socket_cmd_set;
     // }
     socket_cmd_set = temp;
-
 }
 void reconnect()
 {
@@ -205,7 +205,7 @@ void setup()
 }
 void loop()
 {
-    if(millis() - button_timer > interval_time_inside_set)
+    if (millis() - button_timer > interval_time_inside_set)
     {
         button_cmd = digitalRead(buttonPin);
         if (button_cmd == 1)
@@ -223,7 +223,6 @@ void loop()
             digitalWrite(ledPin, HIGH);
         if (socket_state == -1 || socket_state == 0)
             digitalWrite(ledPin, LOW);
-
         if (socket_state == socket_cmd_get_old)
             socket_cmd_get = 0;
         else
@@ -231,20 +230,31 @@ void loop()
             socket_cmd_get_old = socket_state;
             socket_cmd_get = socket_state;
         }
+        if (socket_cmd_get != 0)
+        {
+            Serial.print(socket_cmd_get);
+
+            PubDoc["socket_cmd_get"] = socket_cmd_get;
+            serializeJson(PubDoc, pub_payload);
+            Serial.print("Publish: ");
+            Serial.println(pub_payload);
+            client.publish(mqtt_topic_pub, pub_payload);
+        }
     }
-    
-    if(millis() - publish_timer > interval_time_inside_set)
+
+    WiFi.mode(WIFI_STA);
+    if (!client.connected())
+    {
+        reconnect();
+    }
+    client.loop();
+    if (millis() - publish_timer > interval_time_inside_set)
     {
         publish_timer = millis();
         // Kiểm tra kết nối
-        WiFi.mode(WIFI_STA);
-        if (!client.connected())
-        {
-            reconnect();
-        }
-        client.loop();
 
-        if(socket_cmd_set == socket_state) socket_cmd_set = 0;
+        if (socket_cmd_set == socket_state)
+            socket_cmd_set = 0;
 
         Serial.print("Receive: ");
         Serial.print("interval_time_inside_set:");
@@ -275,7 +285,6 @@ void loop()
         Serial.println(pub_payload);
         client.publish(mqtt_topic_pub, pub_payload);
     }
-    
 
     // delay(interval_time_inside_set);
 }
